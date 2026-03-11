@@ -261,23 +261,19 @@ add(text,"user");
 input.value="";
 const typing=add("Typing...","bot");
 
-try {
 
-const res = await fetch("/api/chat",{
+
+const res=await fetch("/api/chat",{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
 body:JSON.stringify({ message:text })
 });
 
-const data = await res.json();
-
+const data=await res.json();
+typing.remove();
 add(data.reply,"bot");
-
-}catch(err){
-
-add("AI server error","bot");
-
 }
+
 function add(text,type){
 const msg=document.createElement("div");
 msg.className="msg "+type;
