@@ -10,20 +10,28 @@ const model = genAI.getGenerativeModel({
 model: "gemini-1.5-flash"
 });
 
-const { message } = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
-const result = await model.generateContent(message);
+const message = body.message;
 
-const response = await result.response;
-const text = response.text();
+const result = await model.generateContent(
+`You are a disaster safety assistant. Answer briefly.
 
-res.status(200).json({ reply: text });
+User: ${message}`
+);
 
-catch (error) {
-  console.error("Gemini Error:", error);
+const reply = result.response.text();
 
-  res.status(500).json({
-    reply: "Error: " + error.message
-  });
+res.status(200).json({ reply });
+
+} catch (error) {
+
+console.error("Gemini error:", error);
+
+res.status(500).json({
+reply: "AI service temporarily unavailable"
+});
+
 }
+
 }
