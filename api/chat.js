@@ -15,26 +15,25 @@ headers:{
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
-
 model:"mistralai/mistral-7b-instruct",
-
 messages:[
 {
 role:"system",
-content:"You are OceanGuard AI, a disaster management assistant. You help people with information about cyclones, floods, earthquakes, tsunamis, and ocean hazards. Provide safety tips, emergency steps, and preparedness advice in simple language."
+content:"You are OceanGuard AI, a disaster management assistant helping with cyclones, floods, tsunamis and ocean hazards."
 },
-
 {
 role:"user",
 content:message
 }
-
 ]
-
 })
 });
 
 const data = await response.json();
+
+if(!data.choices){
+throw new Error("Invalid AI response");
+}
 
 res.status(200).json({
 reply:data.choices[0].message.content
@@ -42,7 +41,7 @@ reply:data.choices[0].message.content
 
 }catch(error){
 
-console.error(error);
+console.error("AI Error:",error);
 
 res.status(500).json({
 reply:"AI service temporarily unavailable"
