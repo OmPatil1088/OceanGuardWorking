@@ -1,441 +1,504 @@
-// ========================================
-// Emergency Resources
-// ========================================
+/* =========================================
+   HazardWatch Emergency Resources System
+========================================= */
 
-// Sample nearby services data
-const nearbyServices = [
-    {
-        id: 'S-001',
-        type: 'hospitals',
-        name: 'Central City Hospital',
-        address: '123 Medical Avenue, Downtown',
-        distance: 0.8,
-        phone: '+91-9876-543210',
-        emergencyServices: true,
-        coordinates: { lat: 28.7041, lng: 77.1025 }
-    },
-    {
-        id: 'S-002',
-        type: 'police',
-        name: 'Downtown Police Station',
-        address: '456 Law Street, Central District',
-        distance: 1.2,
-        phone: '+91-9876-543211',
-        emergencyServices: true,
-        coordinates: { lat: 28.7050, lng: 77.1090 }
-    },
-    {
-        id: 'S-003',
-        type: 'fire',
-        name: 'Central Fire Station',
-        address: '789 Fire Lane, North District',
-        distance: 1.5,
-        phone: '+91-9876-543212',
-        emergencyServices: true,
-        coordinates: { lat: 28.7150, lng: 77.1100 }
-    },
-    {
-        id: 'S-004',
-        type: 'hospitals',
-        name: 'St. Mary Medical Center',
-        address: '321 Health Road, East Side',
-        distance: 2.1,
-        phone: '+91-9876-543213',
-        emergencyServices: true,
-        coordinates: { lat: 28.5921, lng: 77.2064 }
-    },
-    {
-        id: 'S-005',
-        type: 'ngos',
-        name: 'Red Cross Relief Center',
-        address: '654 Charity Road, West End',
-        distance: 2.3,
-        phone: '+91-9876-543214',
-        emergencyServices: true,
-        coordinates: { lat: 28.5494, lng: 77.0947 }
-    },
-    {
-        id: 'S-006',
-        type: 'shelters',
-        name: 'Community Shelter 1',
-        address: '987 Haven Street, South District',
-        distance: 2.8,
-        phone: '+91-9876-543215',
-        emergencyServices: true,
-        coordinates: { lat: 28.5355, lng: 77.0949 }
-    },
-    {
-        id: 'S-007',
-        type: 'police',
-        name: 'East Division Police',
-        address: '111 Order Lane, East District',
-        distance: 3.2,
-        phone: '+91-9876-543216',
-        emergencyServices: true,
-        coordinates: { lat: 28.5730, lng: 77.2100 }
-    },
-    {
-        id: 'S-008',
-        type: 'fire',
-        name: 'East Fire Brigade',
-        address: '222 Blaze Avenue, East Zone',
-        distance: 3.5,
-        phone: '+91-9876-543217',
-        emergencyServices: true,
-        coordinates: { lat: 28.5800, lng: 77.2150 }
-    }
-];
+document.addEventListener("DOMContentLoaded", initEmergencyResources);
 
-// Preparedness Guides
-const preparednessGuides = [
-    {
-        id: 'G-001',
-        title: '💧 Flood Safety Checklist',
-        bullets: [
-            'Move to higher ground immediately',
-            'Don\'t walk/drive through flooded areas',
-            'Turn off utilities to prevent hazards',
-            'Store valuables and important documents safely',
-            'Keep emergency kit ready',
-            'Stay informed via emergency alerts',
-            'Help neighbors and elderly persons'
-        ]
-    },
-    {
-        id: 'G-002',
-        title: '🌍 Earthquake Safety Steps',
-        bullets: [
-            'DROP, COVER, HOLD ON during shaking',
-            'Stay away from windows and heavy objects',
-            'If outdoors, move to open ground',
-            'If in vehicle, pull over and stay inside',
-            'After quake, check for injuries and damage',
-            'Use stairs, not elevators',
-            'Expect aftershocks'
-        ]
-    },
-    {
-        id: 'G-003',
-        title: '⛈️ Cyclone Preparation',
-        bullets: [
-            'Secure loose objects outdoors',
-            'Trim tree branches near buildings',
-            'Stock food, water, and medicines',
-            'Charge all electronic devices',
-            'Board up windows if necessary',
-            'Move away from glass windows',
-            'Listen to weather updates constantly',
-            'Know your evacuation route'
-        ]
-    },
-    {
-        id: 'G-004',
-        title: '🔥 Fire Safety Guide',
-        bullets: [
-            'Have fire extinguisher in kitchen',
-            'Know location of fire exits',
-            'Practice evacuation routes',
-            'Don\'t panic - exit calmly and quickly',
-            'Keep low to avoid smoke',
-            'Close doors behind you',
-            'Go to designated assembly point',
-            'Call 101 when safe'
-        ]
-    }
-];
+/* =========================================
+   GLOBAL STATE
+========================================= */
 
-// Emergency Kit Items
-const emergencyKitItems = [
-    { id: 'K-001', name: 'Water', icon: '💧', essentialDays: 3 },
-    { id: 'K-002', name: 'Torch', icon: '🔦', essentialDays: 1 },
-    { id: 'K-003', name: 'Power Bank', icon: '🔋', essentialDays: 2 },
-    { id: 'K-004', name: 'Medicines', icon: '💊', essentialDays: 7 },
-    { id: 'K-005', name: 'First Aid Kit', icon: '🩹', essentialDays: 1 },
-    { id: 'K-006', name: 'Food & Snacks', icon: '🏜️', essentialDays: 3 },
-    { id: 'K-007', name: 'ID Documents', icon: '📄', essentialDays: 1 },
-    { id: 'K-008', name: 'Cash', icon: '💵', essentialDays: 1 },
-    { id: 'K-009', name: 'Phone Charger', icon: '🔌', essentialDays: 1 },
-    { id: 'K-010', name: 'Blanket', icon: '🛏️', essentialDays: 1 },
-    { id: 'K-011', name: 'Rope', icon: '🪢', essentialDays: 1 },
-    { id: 'K-012', name: 'Mask & Gloves', icon: '🧤', essentialDays: 1 }
-];
+const state = {
+    userLocation: null,
+    currentFilter: "all"
+};
 
-let userLocation = null;
-let kitChecklist = {};
-let currentServiceFilter = 'all';
+let services = [];
 
-function initializeEmergencyResources() {
+/* =========================================
+   INITIALIZATION
+========================================= */
+
+function initEmergencyResources() {
+
+    const section = document.getElementById("emergencyResourcesSection");
+    if (section) section.style.display = "block";
+
+    initButtons();
+    initFilters();
     renderGuides();
     renderKitChecklist();
-    initializeServiceFilters();
-    initializeKitActions();
+
     detectUserLocation();
 }
 
-// A) Nearby Services
-function detectUserLocation() {
-    const locationStatus = document.getElementById('locationStatus');
-    const refreshBtn = document.getElementById('refreshLocationBtn');
+/* =========================================
+   BUTTON CONTROLS
+========================================= */
 
-    if (navigator.geolocation) {
-        refreshBtn.addEventListener('click', () => {
+function initButtons() {
+
+    const refreshBtn = document.getElementById("refreshLocationBtn");
+    const downloadBtn = document.getElementById("downloadPdfBtn");
+    const resetBtn = document.getElementById("resetKitBtn");
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+
+            refreshBtn.style.transition = "transform .4s";
+            refreshBtn.style.transform = "rotate(360deg)";
+
+            setTimeout(() => {
+                refreshBtn.style.transform = "rotate(0deg)";
+            }, 400);
+
             detectUserLocation();
         });
+    }
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                userLocation = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                };
-                locationStatus.classList.add('active');
-                locationStatus.innerHTML = `<p style="color: var(--success);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; margin-right: 0.5rem;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Location detected</p>`;
-                renderServices(nearbyServices);
-            },
-            (error) => {
-                locationStatus.innerHTML = `<p style="color: var(--warning);">📍 Enable location access for nearby services</p>`;
-                renderServices(nearbyServices);
+    if (downloadBtn)
+        downloadBtn.addEventListener("click", downloadChecklist);
+
+    if (resetBtn)
+        resetBtn.addEventListener("click", resetChecklist);
+}
+
+/* =========================================
+   LOCATION DETECTION
+========================================= */
+
+function detectUserLocation() {
+
+    const status = document.getElementById("locationStatus");
+
+    if (!navigator.geolocation) {
+
+        if (status) status.innerHTML = "⚠ Location not supported";
+        return;
+    }
+
+    if (status) status.innerHTML = "📡 Detecting your location...";
+
+    navigator.geolocation.getCurrentPosition(
+
+        (position) => {
+
+            state.userLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+            };
+
+            if (status) status.innerHTML = "📍 Location detected";
+
+            fetchNearbyServices();
+        },
+
+        () => {
+            if (status) status.innerHTML = "⚠ Location permission denied";
+        },
+
+        {
+            enableHighAccuracy: true,
+            timeout: 10000
+        }
+    );
+}
+
+/* =========================================
+   FETCH SERVICES FROM OSM
+========================================= */
+
+async function fetchNearbyServices() {
+
+    if (!state.userLocation) return;
+
+    const radius = 5000;
+
+    const query = `
+[out:json][timeout:25];
+(
+node["amenity"="hospital"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+node["amenity"="clinic"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+node["amenity"="doctors"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+
+node["amenity"="police"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+
+node["amenity"="fire_station"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+
+node["amenity"="shelter"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+node["amenity"="community_centre"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+
+node["amenity"="social_facility"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+node["office"="ngo"](around:${radius},${state.userLocation.lat},${state.userLocation.lng});
+);
+out body;
+`;
+
+    try {
+
+        const response = await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: "data=" + encodeURIComponent(query)
             }
         );
-    } else {
-        renderServices(nearbyServices);
-    }
-}
 
-function renderServices(services) {
-    const servicesList = document.getElementById('servicesList');
-    servicesList.innerHTML = '';
-
-    const filtered = currentServiceFilter === 'all'
-        ? services
-        : services.filter(s => s.type === currentServiceFilter);
-
-    filtered.forEach(service => {
-        const card = createServiceCard(service);
-        servicesList.appendChild(card);
-    });
-}
-
-function createServiceCard(service) {
-    const card = document.createElement('div');
-    card.className = 'service-card';
-
-    const typeEmoji = {
-        'hospitals': '🏥',
-        'police': '🚨',
-        'fire': '🚒',
-        'ngos': '❤️',
-        'shelters': '🏠'
-    };
-
-    card.innerHTML = `
-        <div class="service-header">
-            <div class="service-type">
-                ${typeEmoji[service.type]}
-                ${service.type.charAt(0).toUpperCase() + service.type.slice(1)}
-            </div>
-        </div>
-        <div class="service-name">${service.name}</div>
-        <div class="service-address">📍 ${service.address}</div>
-        <div style="margin: var(--space-sm) 0;">
-            <span class="service-distance">📏 ${service.distance} km away</span>
-        </div>
-        <div class="service-meta">
-            <span>📞 ${service.phone}</span>
-            <span>${service.emergencyServices ? '🚨 24/7' : '⏰ Regular'}</span>
-        </div>
-        <button class="service-action" onclick="openServiceOnMap(${service.coordinates.lat}, ${service.coordinates.lng}, '${service.name}')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-            </svg>
-            Open in Maps
-        </button>
-    `;
-
-    return card;
-}
-
-function initializeServiceFilters() {
-    const filterBtns = document.querySelectorAll('.service-filter-btn');
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            filterBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            currentServiceFilter = this.dataset.filter;
-            renderServices(nearbyServices);
-        });
-    });
-}
-
-function openServiceOnMap(lat, lng, name) {
-    // Opens Google Maps with the service location
-    const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat},${lng},15z`;
-    window.open(mapsUrl, '_blank');
-}
-
-// C) Preparedness Guides
-function renderGuides() {
-    const guidesContainer = document.getElementById('guidesContainer');
-    guidesContainer.innerHTML = '';
-
-    preparednessGuides.forEach(guide => {
-        const card = createGuideCard(guide);
-        guidesContainer.appendChild(card);
-    });
-
-    // Add click handlers for expansion
-    document.querySelectorAll('.guide-card').forEach(card => {
-        card.addEventListener('click', function() {
-            this.classList.toggle('expanded');
-        });
-    });
-}
-
-function createGuideCard(guide) {
-    const card = document.createElement('div');
-    card.className = 'guide-card';
-
-    const bulletsList = guide.bullets.map(bullet => `<li>${bullet}</li>`).join('');
-
-    card.innerHTML = `
-        <div class="guide-header">
-            <span class="guide-title">${guide.title}</span>
-            <span class="guide-toggle">▼</span>
-        </div>
-        <div class="guide-content">
-            <ul class="guide-bullets">
-                ${bulletsList}
-            </ul>
-        </div>
-    `;
-
-    return card;
-}
-
-// D) Emergency Kit Checklist
-function renderKitChecklist() {
-    const kitChecklist = document.getElementById('kitChecklist');
-    kitChecklist.innerHTML = '';
-
-    emergencyKitItems.forEach(item => {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'kit-item';
-        if (localStorage.getItem(`kit-${item.id}`)) {
-            itemDiv.classList.add('checked');
+        if (!response.ok) {
+            throw new Error("Overpass API error");
         }
 
-        itemDiv.innerHTML = `
-            <div class="kit-icon">${item.icon}</div>
-            <div class="kit-label">${item.name}</div>
-            <div class="kit-checkbox">✓</div>
-        `;
+        const data = await response.json();
 
-        itemDiv.addEventListener('click', () => {
-            toggleKitItem(item.id, itemDiv);
-        });
+        console.log("Nearby services:", data);
 
-        kitChecklist.appendChild(itemDiv);
-    });
+        convertOSMToServices(data.elements || []);
 
-    updateKitProgress();
-}
+    } catch (error) {
 
-function toggleKitItem(itemId, element) {
-    if (element.classList.contains('checked')) {
-        element.classList.remove('checked');
-        localStorage.removeItem(`kit-${itemId}`);
-    } else {
-        element.classList.add('checked');
-        localStorage.setItem(`kit-${itemId}`, 'true');
-    }
-    updateKitProgress();
-}
+        console.error("Service fetch error:", error);
 
-function updateKitProgress() {
-    const total = emergencyKitItems.length;
-    const checked = Object.keys(localStorage)
-        .filter(key => key.startsWith('kit-'))
-        .length;
+        const status = document.getElementById("locationStatus");
 
-    const percentage = Math.round((checked / total) * 100);
-
-    document.getElementById('kitPercentage').textContent = percentage + '%';
-    document.getElementById('kitProgressBar').style.width = percentage + '%';
-}
-
-function initializeKitActions() {
-    const downloadBtn = document.getElementById('downloadPdfBtn');
-    const resetBtn = document.getElementById('resetKitBtn');
-
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', downloadKitPdf);
-    }
-
-    if (resetBtn) {
-        resetBtn.addEventListener('click', resetKitChecklist);
+        if (status)
+            status.innerHTML = "⚠ Unable to fetch nearby services";
     }
 }
+/* =========================================
+   CONVERT OSM DATA
+========================================= */
 
-function downloadKitPdf() {
-    // Create PDF content
-    const pdfContent = `
-EMERGENCY PREPAREDNESS KIT CHECKLIST
-${new Date().toLocaleDateString()}
+function convertOSMToServices(elements) {
 
-Essential Items to Keep Ready:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    services = [];
 
-${emergencyKitItems.map(item => {
-        const isChecked = localStorage.getItem(`kit-${item.id}`) ? '✓' : '☐';
-        return `${isChecked} ${item.icon} ${item.name} (${item.essentialDays} day supply)`;
-    }).join('\n')}
+    elements.forEach((item, index) => {
 
-EMERGENCY CONTACT NUMBERS (INDIA)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• 112 - General Emergency
-• 100 - Police
-• 101 - Fire Department
-• 108 - Ambulance Service
+        if (!item.tags) return;
 
-SAFETY GUIDELINES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Keep this kit in an accessible location
-2. Update supplies regularly
-3. Share location with family members
-4. Practice evacuation routes
-5. Keep emergency contacts updated
-6. Store important documents safely
+        let type = "";
 
-Preparation Completion: ${Math.round((Object.keys(localStorage).filter(key => key.startsWith('kit-')).length / emergencyKitItems.length) * 100)}%
+        if (["hospital", "clinic", "doctors"].includes(item.tags.amenity))
+            type = "hospitals";
 
-Generated on: ${new Date().toLocaleString()}
-Stay Safe! 🛡️
-    `;
+        else if (item.tags.amenity === "police")
+            type = "police";
 
-    // Create blob and download
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(pdfContent));
-    element.setAttribute('download', 'Emergency_Kit_Checklist.txt');
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+        else if (item.tags.amenity === "fire_station")
+            type = "fire";
 
-    alert('Emergency Kit Checklist downloaded successfully!');
-}
+        else if (["shelter", "community_centre"].includes(item.tags.amenity))
+            type = "shelters";
 
-function resetKitChecklist() {
-    if (confirm('Are you sure you want to reset the checklist? This action cannot be undone.')) {
-        // Clear all kit items from localStorage
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('kit-')) {
-                localStorage.removeItem(key);
+        else if (item.tags.amenity === "social_facility" || item.tags.office === "ngo")
+            type = "ngos";
+
+        if (!type) return;
+
+        services.push({
+
+            id: "OSM-" + index,
+
+            type: type,
+
+            name: item.tags.name || "Emergency Service",
+
+            address: item.tags["addr:street"] || "Nearby location",
+
+            distance: calculateDistance(
+                state.userLocation.lat,
+                state.userLocation.lng,
+                item.lat,
+                item.lon
+            ),
+
+            phone: item.tags.phone || "Not available",
+
+            coordinates: {
+                lat: item.lat,
+                lng: item.lon
             }
         });
+    });
 
-        // Re-render the checklist
-        renderKitChecklist();
-        alert('Checklist has been reset.');
+    services.sort((a, b) => a.distance - b.distance);
+
+    renderServices();
+}
+
+/* =========================================
+   DISTANCE CALCULATION
+========================================= */
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+
+    const R = 6371;
+
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return Number(R * c).toFixed(2);
+}
+
+/* =========================================
+   RENDER SERVICES
+========================================= */
+
+function renderServices() {
+
+    const container = document.getElementById("servicesList");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    const filtered =
+        state.currentFilter === "all"
+            ? services
+            : services.filter(s => s.type === state.currentFilter);
+
+    if (filtered.length === 0) {
+
+        container.innerHTML =
+            "<p style='text-align:center'>No services found nearby</p>";
+        return;
     }
+
+    filtered.forEach(service => {
+
+        const card = document.createElement("div");
+        card.className = "service-card";
+
+        card.innerHTML = `
+<h3>${service.name}</h3>
+<p>📍 ${service.address}</p>
+<p>📏 ${service.distance} km away</p>
+<p>📞 ${service.phone}</p>
+<button class="map-btn">Open in Maps</button>
+`;
+
+        card.querySelector(".map-btn").onclick = () => openMap(service);
+
+        container.appendChild(card);
+    });
+}
+
+/* =========================================
+   FILTER SYSTEM
+========================================= */
+
+function initFilters() {
+
+    const buttons = document.querySelectorAll(".service-filter-btn");
+
+    buttons.forEach(btn => {
+
+        btn.addEventListener("click", () => {
+
+            buttons.forEach(b => b.classList.remove("active"));
+
+            btn.classList.add("active");
+
+            state.currentFilter = btn.dataset.filter;
+
+            renderServices();
+        });
+    });
+}
+
+/* =========================================
+   OPEN GOOGLE MAPS
+========================================= */
+
+function openMap(service) {
+
+    const url =
+        `https://www.google.com/maps/search/?api=1&query=${service.coordinates.lat},${service.coordinates.lng}`;
+
+    window.open(url, "_blank");
+}
+
+/* =========================================
+   PREPAREDNESS GUIDES
+========================================= */
+
+const guides = [
+{
+title:"🌊 Flood Safety",
+steps:[
+"Move to higher ground",
+"Avoid flooded roads",
+"Turn off electricity",
+"Prepare emergency kit",
+"Follow official alerts"
+]
+},
+{
+title:"🌍 Earthquake Safety",
+steps:[
+"Drop, Cover, Hold On",
+"Stay away from windows",
+"Move to open area",
+"Check injuries",
+"Expect aftershocks"
+]
+},
+{
+title:"🌪 Cyclone Preparation",
+steps:[
+"Secure loose objects",
+"Stock food and water",
+"Charge devices",
+"Stay indoors",
+"Follow evacuation alerts"
+]
+}
+];
+
+function renderGuides(){
+
+const container=document.getElementById("guidesContainer");
+if(!container) return;
+
+container.innerHTML="";
+
+guides.forEach(g=>{
+
+const card=document.createElement("div");
+card.className="guide-card";
+
+card.innerHTML=`
+<h3>${g.title}</h3>
+<ul>${g.steps.map(s=>`<li>${s}</li>`).join("")}</ul>
+`;
+
+container.appendChild(card);
+
+});
+}
+
+/* =========================================
+   EMERGENCY KIT
+========================================= */
+
+const kitItems=[
+{id:"K1",name:"Water Bottles",icon:"💧"},
+{id:"K2",name:"Torch",icon:"🔦"},
+{id:"K3",name:"Power Bank",icon:"🔋"},
+{id:"K4",name:"First Aid Kit",icon:"🩹"},
+{id:"K5",name:"Medicines",icon:"💊"},
+{id:"K6",name:"Emergency Food",icon:"🥫"},
+{id:"K7",name:"Documents",icon:"📄"},
+{id:"K8",name:"Blanket",icon:"🛏️"}
+];
+
+function renderKitChecklist(){
+
+const container=document.getElementById("kitChecklist");
+if(!container) return;
+
+container.innerHTML="";
+
+kitItems.forEach(item=>{
+
+const div=document.createElement("div");
+div.className="kit-item";
+
+if(localStorage.getItem(item.id))
+div.classList.add("checked");
+
+div.innerHTML=`<span>${item.icon}</span> ${item.name}`;
+
+div.onclick=()=>toggleKitItem(item.id,div);
+
+container.appendChild(div);
+
+});
+
+updateKitProgress();
+}
+
+function toggleKitItem(id,el){
+
+if(localStorage.getItem(id)){
+localStorage.removeItem(id);
+el.classList.remove("checked");
+}else{
+localStorage.setItem(id,true);
+el.classList.add("checked");
+}
+
+updateKitProgress();
+}
+
+/* =========================================
+   KIT PROGRESS
+========================================= */
+
+function updateKitProgress(){
+
+const total=kitItems.length;
+
+const completed=kitItems.filter(i=>localStorage.getItem(i.id)).length;
+
+const percent=Math.round((completed/total)*100);
+
+const percentage=document.getElementById("kitPercentage");
+const bar=document.getElementById("kitProgressBar");
+
+if(percentage) percentage.textContent=percent+"%";
+if(bar) bar.style.width=percent+"%";
+}
+
+/* =========================================
+   DOWNLOAD CHECKLIST
+========================================= */
+
+function downloadChecklist(){
+
+const text=`
+Emergency Kit Checklist
+
+${kitItems.map(i=>{
+const c=localStorage.getItem(i.id)?"✓":"☐";
+return `${c} ${i.name}`;
+}).join("\n")}
+
+Emergency Numbers (India)
+
+112 Emergency
+100 Police
+101 Fire
+108 Ambulance
+`;
+
+const blob=new Blob([text],{type:"text/plain"});
+
+const link=document.createElement("a");
+link.href=URL.createObjectURL(blob);
+link.download="emergency-kit.txt";
+link.click();
+}
+
+/* =========================================
+   RESET CHECKLIST
+========================================= */
+
+function resetChecklist(){
+
+if(!confirm("Reset checklist?")) return;
+
+kitItems.forEach(i=>localStorage.removeItem(i.id));
+
+renderKitChecklist();
 }
