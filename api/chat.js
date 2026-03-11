@@ -8,21 +8,13 @@ return res.status(405).json({ reply: "Method not allowed" });
 
 try {
 
-const apiKey = process.env.GEMINI_API_KEY;
-
-if (!apiKey) {
-throw new Error("Missing Gemini API Key");
-}
-
-const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-
-const message = body?.message;
+const { message } = req.body || {};
 
 if (!message) {
-return res.status(400).json({ reply: "No message provided" });
+return res.status(400).json({ reply: "Message missing" });
 }
 
-const genAI = new GoogleGenerativeAI(apiKey);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const model = genAI.getGenerativeModel({
 model: "gemini-1.5-flash"
@@ -38,7 +30,7 @@ reply: response
 
 } catch (error) {
 
-console.error("Gemini Error:", error);
+console.error("Gemini error:", error);
 
 return res.status(500).json({
 reply: "AI service temporarily unavailable"
