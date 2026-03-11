@@ -1,0 +1,110 @@
+<!-- Emergency Resources Section Container -->
+<div class="emergency-resources-section" id="emergencyResourcesSection" style="display: none;">
+    <!-- A) Nearby Services (Location-based) -->
+    <div class="resources-grid">
+        <div class="services-container">
+            <div class="section-header">
+                <h2>Nearby Emergency Services</h2>
+                <button class="btn-refresh" id="refreshLocationBtn" title="Refresh location">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6"/>
+                        <path d="M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="location-status" id="locationStatus">
+                <p style="text-align: center; color: var(--gray); padding: var(--space-md);">📍 Enable location to see nearby services</p>
+            </div>
+
+            <div class="services-filter">
+                <button class="service-filter-btn active" data-filter="all">All Services</button>
+                <button class="service-filter-btn" data-filter="hospitals">🏥 Hospitals</button>
+                <button class="service-filter-btn" data-filter="police">🚨 Police</button>
+                <button class="service-filter-btn" data-filter="fire">🚒 Fire</button>
+                <button class="service-filter-btn" data-filter="ngos">❤️ NGOs</button>
+                <button class="service-filter-btn" data-filter="shelters">🏠 Shelters</button>
+            </div>
+
+            <div class="services-list" id="servicesList">
+                <!-- Services will be added here by JS -->
+            </div>
+        </div>
+
+        <!-- B) Emergency Contact Numbers & C) Preparedness Guides -->
+        <div class="resources-sidebar">
+            <!-- Emergency Contact Numbers -->
+            <div class="contact-panel">
+                <div class="panel-header">
+                    <h3>📞 Emergency Contacts (India)</h3>
+                </div>
+                <div class="contacts-list">
+                    <div class="contact-item">
+                        <span class="contact-number">112</span>
+                        <span class="contact-label">Emergency</span>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-number">100</span>
+                        <span class="contact-label">Police</span>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-number">101</span>
+                        <span class="contact-label">Fire</span>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-number">108</span>
+                        <span class="contact-label">Ambulance</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preparedness Guides -->
+            <div class="guides-panel">
+                <div class="panel-header">
+                    <h3>🛡️ Quick Guides</h3>
+                </div>
+                <div class="guides-container" id="guidesContainer">
+                    <!-- Guide cards will be added here by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- D) Downloadable Emergency Kit Guide -->
+    <div class="emergency-kit-section">
+        <div class="section-header">
+            <h2>Emergency Preparedness Kit</h2>
+        </div>
+
+        <div class="kit-container">
+            <div class="kit-progress">
+                <div class="progress-label">
+                    <span>Kit Completeness:</span>
+                    <span class="progress-percentage" id="kitPercentage">0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="kitProgressBar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="kit-checklist" id="kitChecklist">
+                <!-- Checklist items will be added here by JS -->
+            </div>
+
+            <div class="kit-actions">
+                <button class="btn-download-pdf" id="downloadPdfBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download PDF Guide
+                </button>
+                <button class="btn-reset-kit" id="resetKitBtn">
+                    Reset Checklist
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,84 @@
+<!-- Community Section Container -->
+<div class="community-section" id="communitySection" style="display: none;">
+    <!-- A) Public Incident Feed -->
+    <div class="community-grid">
+        <div class="community-feed-container">
+            <div class="section-header">
+                <h2>Public Incident Feed</h2>
+            </div>
+            <div class="feed-filters">
+                <select class="filter-select" id="disasterTypeFilter">
+                    <option value="all">All Disaster Types</option>
+                    <option value="flood">Flood</option>
+                    <option value="fire">Fire</option>
+                    <option value="earthquake">Earthquake</option>
+                    <option value="landslide">Landslide</option>
+                    <option value="storm">Storm</option>
+                </select>
+                <select class="filter-select" id="severityFilter">
+                    <option value="all">All Severity</option>
+                    <option value="critical">Critical</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+                <input type="text" placeholder="Filter by location..." class="search-input" id="locationFilter">
+                <select class="filter-select" id="verificationFilter">
+                    <option value="all">All Reports</option>
+                    <option value="verified">Verified Only</option>
+                    <option value="unverified">Unverified Only</option>
+                </select>
+            </div>
+            <div class="incidents-feed" id="incidentsFeed">
+                <!-- Incidents will be added here by JS -->
+            </div>
+        </div>
+
+        <!-- B) Verification System & D) Comments -->
+        <div class="community-sidebar">
+            <!-- Verification System -->
+            <div class="verification-panel">
+                <div class="panel-header">
+                    <h3>Verification System</h3>
+                </div>
+                <div class="verification-content" id="verificationContent">
+                    <p class="placeholder-text">Select an incident to view verification details</p>
+                </div>
+            </div>
+
+            <!-- C) Media Viewer -->
+            <div class="media-panel">
+                <div class="panel-header">
+                    <h3>Incident Media</h3>
+                </div>
+                <div class="media-viewer" id="mediaViewer">
+                    <p class="placeholder-text">Media will appear here</p>
+                </div>
+                <div class="media-upload" id="mediaUpload">
+                    <label for="imageUpload" class="upload-label">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Upload Image
+                    </label>
+                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- D) Comment Section -->
+    <div class="comments-section">
+        <div class="section-header">
+            <h2>Incident Comments</h2>
+        </div>
+        <div class="comment-input-box">
+            <input type="text" placeholder="Add a comment..." class="comment-input" id="commentInput">
+            <button class="btn-primary" id="commentBtn" style="width: auto; padding: 0.75rem 1.5rem;">Post</button>
+        </div>
+        <div class="comments-list" id="commentsList">
+            <p class="placeholder-text">Select an incident to view comments</p>
+        </div>
+    </div>
+</div>

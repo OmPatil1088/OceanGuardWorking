@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DisasterWatch - Login</title>
+<link rel="stylesheet" href="css/styles.css">
+
+<style>
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto;
+  background: linear-gradient(120deg,#0ea5e9,#22c55e);
+  height:100vh;
+}
+
+/* Chat Button */
+#chat-toggle{
+  position:fixed;
+  bottom:25px;
+  right:25px;
+  width:65px;
+  height:65px;
+  border-radius:50%;
+  border:none;
+  font-size:26px;
+  cursor:pointer;
+  color:white;
+  background:linear-gradient(135deg,#06b6d4,#3b82f6);
+  box-shadow:0 10px 25px rgba(0,0,0,.25);
+  transition:.3s;
+}
+#chat-toggle:hover{
+  transform:scale(1.1);
+}
+
+/* Chat Window */
+#chatbox{
+  position:fixed;
+  bottom:110px;
+  right:25px;
+  width:320px;
+  height:480px;
+  display:none;
+  flex-direction:column;
+  backdrop-filter: blur(16px);
+  background: rgba(255,255,255,0.15);
+  border-radius:20px;
+  box-shadow:0 25px 60px rgba(0,0,0,.3);
+  overflow:hidden;
+  animation: pop .3s ease;
+}
+
+@keyframes pop{
+  from{transform:scale(.8);opacity:0}
+  to{transform:scale(1);opacity:1}
+}
+
+/* Header */
+#header{
+  padding:15px;
+  color:white;
+  font-weight:bold;
+  background:linear-gradient(135deg,#0284c7,#22c55e);
+}
+
+/* Messages */
+#messages{
+  flex:1;
+  padding:15px;
+  overflow-y:auto;
+}
+
+.msg{
+  padding:10px 14px;
+  margin:8px 0;
+  border-radius:16px;
+  max-width:75%;
+  animation: fade .25s ease;
+}
+
+.user{
+  background:#2563eb;
+  color:white;
+  margin-left:auto;
+}
+
+.bot{
+  background:white;
+  color:#111;
+}
+
+@keyframes fade{
+  from{opacity:0;transform:translateY(10px)}
+  to{transform:translateY(0)}
+}
+
+/* Input */
+#input-area{
+  display:flex;
+  padding:12px;
+  background:rgba(255,255,255,0.2);
+}
+
+#input{
+  flex:1;
+  border:none;
+  border-radius:12px;
+  padding:10px;
+  outline:none;
+}
+
+#send{
+  margin-left:8px;
+  border:none;
+  border-radius:12px;
+  padding:10px 14px;
+  background:#22c55e;
+  color:white;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body class="login-page">
+
+<div class="login-container">
+<div class="login-left">
+<div class="hero-content">
+<div class="logo">
+<svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+<path d="M30 5L50 20L45 45L30 55L15 45L10 20L30 5Z" stroke="currentColor" stroke-width="3" fill="none"/>
+<circle cx="30" cy="30" r="8" fill="currentColor"/>
+<path d="M30 22V15M30 45V38M38 30H45M15 30H22" stroke="currentColor" stroke-width="2.5"/>
+</svg>
+<h1>DisasterWatch</h1>
+</div>
+
+<p class="tagline">Real-time disaster monitoring and response coordination</p>
+
+<div class="stats-grid">
+<div class="stat-item">
+<div class="stat-number">24/7</div>
+<div class="stat-label">Monitoring</div>
+</div>
+<div class="stat-item">
+<div class="stat-number">98%</div>
+<div class="stat-label">Response Rate</div>
+</div>
+<div class="stat-item">
+<div class="stat-number">1000+</div>
+<div class="stat-label">Lives Saved</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="login-right">
+<div class="login-form-wrapper">
+<h2>Welcome Back</h2>
+<p class="subtitle">Enter your credentials to access the dashboard</p>
+
+<form id="loginForm" class="login-form">
+<div class="form-group">
+<label for="username">Username or Email</label>
+<input type="text" id="username" name="username" placeholder="Enter your username" required>
+</div>
+
+<div class="form-group">
+<label for="password">Password</label>
+<input type="password" id="password" name="password" placeholder="Enter your password" required>
+</div>
+
+<div class="form-options">
+<label class="checkbox-label">
+<input type="checkbox" name="remember">
+<span>Remember me</span>
+</label>
+<a href="#" class="forgot-link">Forgot password?</a>
+</div>
+
+<button type="submit" class="btn-primary">
+Sign In
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+<path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</svg>
+</button>
+
+<div class="divider"><span>or continue with</span></div>
+
+ <div class="social-login">
+                        <button type="button" class="btn-social">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                    d="M10 0C4.477 0 0 4.477 0 10c0 4.991 3.657 9.128 8.438 9.879V12.89h-2.54V10h2.54V7.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V10h2.773l-.443 2.89h-2.33v6.989C16.343 19.128 20 14.991 20 10c0-5.523-4.477-10-10-10z" />
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-social">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                    d="M19.6 10.23c0-.82-.1-1.42-.25-2.05H10v3.72h5.5c-.15.96-.74 2.31-2.04 3.22v2.45h3.16c1.89-1.73 2.98-4.3 2.98-7.34z" />
+                                <path
+                                    d="M10 20c2.7 0 4.96-.89 6.62-2.42l-3.16-2.45c-.86.58-1.97.92-3.46.92-2.65 0-4.92-1.8-5.73-4.22H1.07v2.52C2.72 17.75 6.09 20 10 20z" />
+                                <path
+                                    d="M4.27 11.83c-.2-.58-.31-1.19-.31-1.83s.11-1.25.31-1.83V5.65H1.07C.39 7.01 0 8.46 0 10s.39 2.99 1.07 4.35l3.2-2.52z" />
+                                <path
+                                    d="M10 3.98c1.5 0 2.85.52 3.91 1.53l2.87-2.87C15.96.91 13.7 0 10 0 6.09 0 2.72 2.25 1.07 5.65l3.2 2.52C5.08 5.78 7.35 3.98 10 3.98z" />
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-social">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                    d="M10 0C4.477 0 0 4.477 0 10c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0110 4.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C17.137 18.163 20 14.418 20 10c0-5.523-4.477-10-10-10z" />
+                            </svg>
+                        </button>
+                    </div>
+</form>
+
+<p class="signup-link">Don't have an account? <a href="#">Sign up</a></p>
+</div>
+</div>
+</div>
+
+<button id="chat-toggle">💬</button>
+
+<div id="chatbox">
+<div id="header">🌊 Disaster Guard</div>
+<div id="messages"></div>
+
+<div id="input-area">
+<input id="input" placeholder="Ask something...">
+<button id="send">Send</button>
+</div>
+</div>
+
+<script type="module" src="login.js"></script>
+
+<script>
+const toggle=document.getElementById("chat-toggle");
+const box=document.getElementById("chatbox");
+const sendBtn=document.getElementById("send");
+const input=document.getElementById("input");
+const messages=document.getElementById("messages");
+
+toggle.onclick=()=>{
+box.style.display=box.style.display==="flex"?"none":"flex";
+}
+
+sendBtn.onclick=send;
+input.addEventListener("keypress",e=>{
+if(e.key==="Enter") send();
+});
+
+async function send(){
+const text=input.value.trim();
+if(!text) return;
+
+add(text,"user");
+input.value="";
+const typing=add("Typing...","bot");
+
+const res=await fetch("/chat",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body:JSON.stringify({ message:text })
+});
+
+const data=await res.json();
+typing.remove();
+add(data.reply,"bot");
+}
+
+function add(text,type){
+const msg=document.createElement("div");
+msg.className="msg "+type;
+msg.innerText=text;
+messages.appendChild(msg);
+messages.scrollTop=messages.scrollHeight;
+return msg;
+}
+</script>
+
+</body>
+</html>
