@@ -19,14 +19,11 @@ const text = response.text();
 
 res.status(200).json({ reply: text });
 
-} catch (error) {
+catch (error) {
+  console.error("Gemini Error:", error);
 
-console.error(error);
-
-res.status(500).json({
-reply: "AI service temporarily unavailable"
-});
-
+  res.status(500).json({
+    reply: "Error: " + error.message
+  });
 }
-
 }
