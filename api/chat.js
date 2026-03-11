@@ -1,49 +1,32 @@
-// api/chat.js
-import { OpenAI } from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-function disasterLogic(message) {
-  message = message.toLowerCase();
-  if (message.includes("earthquake")) return "⚠️ During an earthquake: Drop, Cover, and Hold.";
-  if (message.includes("flood")) return "🌊 Flood Alert: Move to higher ground immediately.";
-  if (message.includes("cyclone")) return "🌀 Cyclone Safety: Stay indoors, secure loose objects.";
-  if (message.includes("fire")) return "🔥 Fire Emergency: Evacuate immediately.";
-  if (message.includes("hello") || message.includes("hi")) return "Hello 👋 I am Ocean Guard Assistant. How can I help you today?";
-  return null;
-}
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ reply: "Method not allowed" });
-  }
 
-  try {
-    const { message } = req.body;
+try {
 
-    // Check local disaster responses first
-    const localReply = disasterLogic(message);
-    if (localReply) return res.status(200).json({ reply: localReply });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    // Otherwise call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are Ocean Guard Assistant. Provide disaster safety advice, ocean hazards, earthquakes, floods, cyclones, and emergency guidance.",
-        },
-        { role: "user", content: message },
-      ],
-    });
+const model = genAI.getGenerativeModel({
+model: "gemini-1.5-flash"
+});
 
-    const reply = completion.choices[0].message.content;
-    res.status(200).json({ reply });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ reply: "⚠️ AI service temporarily unavailable." });
-  }
+const { message } = req.body;
+
+const result = await model.generateContent(message);
+
+const response = await result.response;
+const text = response.text();
+
+res.status(200).json({ reply: text });
+
+} catch (error) {
+
+console.error(error);
+
+res.status(500).json({
+reply: "AI service temporarily unavailable"
+});
+
+}
+
 }
