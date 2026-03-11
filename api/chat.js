@@ -11,7 +11,7 @@ try {
 const { message } = req.body || {};
 
 if (!message) {
-return res.status(400).json({ reply: "Message is required" });
+return res.status(400).json({ reply: "Message required" });
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -20,9 +20,11 @@ const model = genAI.getGenerativeModel({
 model: "gemini-1.5-flash"
 });
 
-const result = await model.generateContent(message);
+const result = await model.generateContent({
+contents: [{ role: "user", parts: [{ text: message }] }]
+});
 
-const response = await result.response;
+const response = result.response;
 
 res.status(200).json({
 reply: response.text()
