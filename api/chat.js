@@ -10,7 +10,7 @@ const model = genAI.getGenerativeModel({
 model: "gemini-1.5-flash"
 });
 
-const { message } = req.body;
+const { message } = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
 const result = await model.generateContent(message);
 
