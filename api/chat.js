@@ -1,5 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 export default async function handler(req, res) {
 
 if (req.method !== "POST") {
@@ -10,31 +8,44 @@ try {
 
 const { message } = req.body;
 
-if(!message){
-return res.status(400).json({ reply:"No message provided"});
+const response = await fetch("https://openrouter.ai/api/v1/chat/completions",{
+method:"POST",
+headers:{
+"Authorization":`Bearer ${process.env.OPENROUTER_API_KEY}`,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+
+model:"mistralai/mistral-7b-instruct",
+
+messages:[
+{
+role:"system",
+content:"You are OceanGuard AI, a disaster management assistant. You help people with information about cyclones, floods, earthquakes, tsunamis, and ocean hazards. Provide safety tips, emergency steps, and preparedness advice in simple language."
+},
+
+{
+role:"user",
+content:message
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+]
 
-const model = genAI.getGenerativeModel({
-model: "gemini-2.0-flash"
+})
 });
 
-const result = await model.generateContent(message);
+const data = await response.json();
 
-const response = await result.response;
-const text = response.text();
-
-return res.status(200).json({
-reply: text
+res.status(200).json({
+reply:data.choices[0].message.content
 });
 
-} catch (error) {
+}catch(error){
 
-console.error("Gemini Error:", error);
+console.error(error);
 
-return res.status(500).json({
-reply: "AI service temporarily unavailable"
+res.status(500).json({
+reply:"AI service temporarily unavailable"
 });
 
 }
