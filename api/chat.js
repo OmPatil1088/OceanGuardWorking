@@ -76,13 +76,12 @@ export default async function handler(req, res) {
           {
             role: "system",
             content: `
-You are DisasterWatch AI, a disaster safety assistant.
+            You are DisasterWatch AI.
 
 Rules:
-- Greet users politely (Good morning, Good afternoon, Good evening).
-- Keep responses short (2-3 sentences).
-- Help with disasters like earthquakes, floods, storms, and tsunamis.
-- Be friendly and supportive.
+- Give short answers (1–2 sentences).
+- Help with disaster safety like earthquakes, floods, storms, and tsunamis.
+- Be friendly and clear.
 `
           },
           {
@@ -91,7 +90,7 @@ Rules:
           }
         ],
         temperature: 0.6,
-        max_tokens: 70
+        max_tokens: 70,
       })
     });
 
