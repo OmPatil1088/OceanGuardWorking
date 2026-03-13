@@ -16,13 +16,16 @@ export default async function handler(req, res) {
     // Normalize user text
     const text = message.toLowerCase().trim();
 
-    // Time-based greeting
-    const hour = new Date().getHours();
-    let greeting = "Hello";
+   // Time-based greeting (fixed for IST)
+const now = new Date();
+const hour = parseInt(
+  now.toLocaleString("en-US", { hour: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })
+);
+let greeting = "Hello";
 
-    if (hour < 12) greeting = "Good morning";
-    else if (hour < 18) greeting = "Good afternoon";
-    else greeting = "Good evening";
+if (hour < 12) greeting = "Good morning";
+else if (hour < 18) greeting = "Good afternoon";
+else greeting = "Good evening";
 
     // Greeting detection (handles many variations)
     const greetings = ["hi", "hii", "hiii", "hello", "hey", "helo", "helllo", "hlo"];
