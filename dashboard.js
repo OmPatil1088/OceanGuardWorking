@@ -386,23 +386,17 @@ document.addEventListener("DOMContentLoaded", loadNews);
 let casesData = [];
 
 function loadCases() {
-
-    // Convert alerts to cases
-    if (typeof alertsData !== "undefined") {
-
-        casesData = alertsData.map(alert => ({
-            id: alert.id,
-            type: alert.type,
-            location: alert.area,
-            severity: alert.severity,
-            status: alert.severity === "critical" || alert.severity === "high" ? "active" : "resolved",
-            reported: formatTime(alert.timestamp)
-        }));
-
-    }
-
-    renderCases(casesData);
-}
+    if (!casesInitialized) {
+        // Search functionality
+        document.getElementById('searchCases').addEventListener('input', function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = casesData.filter(c =>
+                c.id.toLowerCase().includes(searchTerm) ||
+                c.type.toLowerCase().includes(searchTerm) ||
+                c.location.toLowerCase().includes(searchTerm)
+            );
+            renderCases(filtered);
+        });
 
         // Filter functionality
         document.getElementById('filterStatus').addEventListener('change', function (e) {
