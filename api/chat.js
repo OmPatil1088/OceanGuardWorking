@@ -1,13 +1,11 @@
 export default async function handler(req, res) {
 
-  // Allow only POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
 
-    // Safely parse body
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const message = body?.message;
 
@@ -15,36 +13,78 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    // Call OpenRouter API
+    const text = message.toLowerCase();
+
+    // Time-based greeting
+    const hour = new Date().getHours();
+    let greeting = "Hello";
+
+    if (hour < 12) greeting = "Good morning";
+    else if (hour < 18) greeting = "Good afternoon";
+    else greeting = "Good evening";
+
+    // Quick instant replies (no AI call)
+
+    if (text === "hi" || text === "hello" || text === "hey") {
+      return res.status(200).json({
+        reply: `${greeting}! 👋 I'm DisasterWatch AI. Ask me about disasters or safety tips anytime.`
+      });
+    }
+
+    if (text.includes("who are you")) {
+      return res.status(200).json({
+        reply: `I'm DisasterWatch AI 🌍 — your quick guide for disaster alerts and safety tips.`
+      });
+    }
+
+    if (text.includes("what can you do")) {
+      return res.status(200).json({
+        reply: `I help with earthquake, flood, storm, and tsunami safety ⚠️. Just ask!`
+      });
+    }
+
+    if (text.includes("how are you")) {
+      return res.status(200).json({
+        reply: `I'm running smoothly ⚡ Ready to help you stay safe from disasters.`
+      });
+    }
+
+    // Call AI via OpenRouter
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://ocean-guard-working.vercel.app",
-        "X-Title": "OceanGuard AI"
+        "X-Title": "DisasterWatch AI"
       },
       body: JSON.stringify({
         model: "meta-llama/llama-3.1-8b-instruct",
         messages: [
           {
             role: "system",
-            content:
-              "You are OceanGuard AI, a disaster safety assistant helping people with tsunami alerts, flood warnings, earthquake safety, and emergency preparation."
+            content: `
+You are DisasterWatch AI, a disaster safety assistant.
+
+Rules:
+- Greet users politely (Good morning, Good afternoon, Good evening).
+- Give short and helpful answers (2-3 sentences).
+- Help with disaster safety (earthquakes, floods, storms, tsunamis).
+- Be friendly and supportive.
+`
           },
           {
             role: "user",
             content: message
           }
         ],
-        temperature: 0.7,
-        max_tokens: 300
+        temperature: 0.6,
+        max_tokens: 120
       })
     });
 
     const data = await response.json();
 
-    // Debug log for Vercel
     console.log("OpenRouter response:", data);
 
     if (!response.ok) {
