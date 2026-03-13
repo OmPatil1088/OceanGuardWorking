@@ -13,7 +13,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    const text = message.toLowerCase();
+    // Normalize user text
+    const text = message.toLowerCase().trim();
 
     // Time-based greeting
     const hour = new Date().getHours();
@@ -23,33 +24,44 @@ export default async function handler(req, res) {
     else if (hour < 18) greeting = "Good afternoon";
     else greeting = "Good evening";
 
-    // Quick instant replies (no AI call)
+    // Greeting detection (handles many variations)
+    const greetings = ["hi", "hii", "hiii", "hello", "hey", "helo", "helllo", "hlo"];
 
-    if (text === "hi" || text === "hello" || text === "hey") {
+    if (greetings.some(g => text.startsWith(g))) {
       return res.status(200).json({
         reply: `${greeting}! 👋 I'm DisasterWatch AI. Ask me about disasters or safety tips anytime.`
       });
     }
 
+    // Who are you
     if (text.includes("who are you")) {
       return res.status(200).json({
         reply: `I'm DisasterWatch AI 🌍 — your quick guide for disaster alerts and safety tips.`
       });
     }
 
+    // What can you do
     if (text.includes("what can you do")) {
       return res.status(200).json({
         reply: `I help with earthquake, flood, storm, and tsunami safety ⚠️. Just ask!`
       });
     }
 
+    // How are you
     if (text.includes("how are you")) {
       return res.status(200).json({
-        reply: `I'm running smoothly ⚡ Ready to help you stay safe from disasters.`
+        reply: `Running smoothly ⚡ Ready to help you stay safe from disasters.`
       });
     }
 
-    // Call AI via OpenRouter
+    // Thanks detection
+    if (text.includes("thank")) {
+      return res.status(200).json({
+        reply: `You're welcome! 😊 Stay safe and feel free to ask anytime.`
+      });
+    }
+
+    // Call AI through OpenRouter
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -68,8 +80,8 @@ You are DisasterWatch AI, a disaster safety assistant.
 
 Rules:
 - Greet users politely (Good morning, Good afternoon, Good evening).
-- Give short and helpful answers (2-3 sentences).
-- Help with disaster safety (earthquakes, floods, storms, tsunamis).
+- Keep responses short (2-3 sentences).
+- Help with disasters like earthquakes, floods, storms, and tsunamis.
 - Be friendly and supportive.
 `
           },
