@@ -91,7 +91,7 @@ Rules:
           }
         ],
         temperature: 0.6,
-        max_tokens: 120
+        max_tokens: 70
       })
     });
 
