@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const loginForm = document.getElementById('loginForm');
 
     // Handle login form submission
-    loginForm.addEventListener('submit', async function (e) {
+    loginForm.addEventListener('submit', async fzsunction (e) {
         e.preventDefault();
 
         const email = document.getElementById('username').value;
