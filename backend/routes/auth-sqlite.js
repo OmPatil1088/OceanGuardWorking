@@ -1,16 +1,15 @@
 /**
- * Authentication Routes - MongoDB Version
- * Handles user registration, login, and token management
+ * Authentication Routes - SQLite Version
  */
 
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const db = require('../db-sqlite');
 const logger = require('../middleware/logger');
 
 /**
  * POST /api/auth/register
- * Register a new user
  */
 router.post('/register', async (req, res) => {
   try {
@@ -24,43 +23,54 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
+    const database = db.getInstance();
+
+    // Check if user exists
+    const existing = database.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
+    if (existing) {
       return res.status(409).json({
         success: false,
         message: 'Email already registered'
       });
     }
 
-    // Create new user
-    const newUser = new User({
-      email: email.toLowerCase(),
-      password,
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert user
+    const stmt = database.prepare(`
+      INSERT INTO users (email, password, firstName, lastName, fullName, role)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    // Determine role
+    const role = email.toLowerCase().includes('admin') || email.toLowerCase().includes('ompatil') ? 'admin' : 'user';
+
+    const result = stmt.run(
+      email.toLowerCase(),
+      hashedPassword,
       firstName,
-      lastName: lastName || '',
-      fullName: fullName || `${firstName} ${lastName || ''}`.trim()
-    });
+      lastName || '',
+      fullName || `${firstName} ${lastName || ''}`.trim(),
+      role
+    );
 
-    // Save user (triggers password hashing)
-    await newUser.save();
-
-    logger.info(`✅ New user registered: ${email}`);
+    logger.info(`✅ User registered: ${email}`);
 
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
       data: {
         user: {
-          id: newUser._id,
-          email: newUser.email,
-          firstName: newUser.firstName,
-          role: newUser.role
+          id: result.lastInsertRowid,
+          email: email.toLowerCase(),
+          firstName,
+          role
         }
       }
     });
   } catch (error) {
-    logger.error('Registration error:', error);
+    logger.error('Register error:', error);
     res.status(500).json({
       success: false,
       message: 'Registration failed',
@@ -71,22 +81,22 @@ router.post('/register', async (req, res) => {
 
 /**
  * POST /api/auth/login
- * User login
  */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email and password are required'
+        message: 'Email and password required'
       });
     }
 
-    // Find user and explicitly select password field
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const database = db.getInstance();
+
+    // Find user
+    const user = database.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase());
 
     if (!user) {
       return res.status(401).json({
@@ -95,7 +105,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check if user is active
+    // Check if active
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -104,9 +114,9 @@ router.post('/login', async (req, res) => {
     }
 
     // Compare passwords
-    const isPasswordMatch = await user.comparePassword(password);
+    const passwordMatch = await bcrypt.compare(password, user.password);
 
-    if (!isPasswordMatch) {
+    if (!passwordMatch) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
@@ -114,17 +124,16 @@ router.post('/login', async (req, res) => {
     }
 
     // Update last login
-    user.lastLogin = new Date();
-    await user.save();
+    database.prepare('UPDATE users SET lastLogin = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
 
-    logger.info(`✅ User logged in: ${email} (Role: ${user.role})`);
+    logger.info(`✅ Login: ${email} (${user.role})`);
 
     res.status(200).json({
       success: true,
       message: 'Login successful',
       data: {
         user: {
-          id: user._id,
+          id: user.id,
           email: user.email,
           firstName: user.firstName,
           fullName: user.fullName,
@@ -143,10 +152,8 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
 /**
  * POST /api/auth/logout
- * User logout
  */
 router.post('/logout', (req, res) => {
   res.status(200).json({

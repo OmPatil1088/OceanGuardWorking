@@ -200,8 +200,14 @@ async function handleLoginSubmit(e) {
         console.log("🔐 LOGIN ATTEMPT START");
         console.log("1️⃣  Authenticating via MongoDB backend...");
 
+        // Get backend API URL from location
+        const baseUrl = window.location.protocol + '//' + window.location.host;
+        const apiEndpoint = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') 
+            ? 'http://localhost:5000/api/auth/login'
+            : '/api/auth/login';
+
         // Call backend API for authentication
-        const response = await fetch('/api/login', {
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password })
@@ -210,36 +216,36 @@ async function handleLoginSubmit(e) {
         const data = await response.json();
 
         if (!response.ok) {
-            console.log(`❌ [AUTH FAILED] Invalid credentials for: ${email}`);
-            showLoginError(data.error || 'Invalid email or password. Please check and try again.');
+            console.log(`❌ [AUTH FAILED] ${data.message || 'Invalid credentials'}`);
+            showLoginError(data.message || 'Invalid email or password. Please check and try again.');
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
             return;
         }
 
         // Authentication successful
-        console.log(`✅ [AUTH SUCCESS] User authenticated: ${email}`);
+        const user = data.data.user;
+        console.log(`✅ [AUTH SUCCESS] User authenticated: ${email} | Role: ${user.role}`);
 
-        // Determine user role (admin if email contains 'admin' or 'ompatil')
-        const userRole = email.includes('admin') || email.includes('ompatil') ? 'admin' : 'user';
-
-        // Store user session
+        // Store user session from backend response
         sessionStorage.setItem('isLoggedIn', 'true');
-        sessionStorage.setItem('username', email);
-        sessionStorage.setItem('userRole', userRole);
-        sessionStorage.setItem('isAdmin', userRole === 'admin' ? 'true' : 'false');
+        sessionStorage.setItem('username', user.email);
+        sessionStorage.setItem('userId', user.id);
+        sessionStorage.setItem('userRole', user.role);
+        sessionStorage.setItem('isAdmin', user.role === 'admin' ? 'true' : 'false');
+        sessionStorage.setItem('fullName', user.fullName);
 
         if (remember) {
-            localStorage.setItem('rememberedUser', email);
+            localStorage.setItem('rememberedUser', user.email);
         }
 
-        console.log(`✅ [LOGIN COMPLETE] User: ${email} | Role: ${userRole}`);
+        console.log(`✅ [LOGIN COMPLETE] User: ${email} | Role: ${user.role}`);
 
         // Redirect to dashboard
         window.location.href = 'dashboard.html';
     } catch (error) {
         console.error("❌ [LOGIN FAILED]", error);
-        showLoginError('An unexpected error occurred. Please try again.');
+        showLoginError('Failed to connect to server. Please try again.');
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -376,56 +382,56 @@ async function handleSignupSubmit(e) {
         submitBtn.innerHTML = '⏳ Creating account...';
         submitBtn.disabled = true;
 
-        console.log("1️⃣  PRIMARY: Trying MongoDB backend registration...");
+        console.log("1️⃣  Registering via MongoDB backend...");
 
-        // Check if user already exists (Firebase or local)
-        const userExists = await checkIfUserExists(email);
-        if (userExists) {
-            showSignupError('This email is already registered. Please login instead.');
+        // Get backend API URL
+        const baseUrl = window.location.protocol + '//' + window.location.host;
+        const apiEndpoint = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') 
+            ? 'http://localhost:5000/api/auth/register'
+            : '/api/auth/register';
+
+        // Split name into first and last name
+        const nameParts = name.split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // Register via backend API
+        const response = await fetch(apiEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email,
+                password,
+                firstName,
+                lastName,
+                fullName: name
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.log(`❌ [SIGNUP FAILED] ${data.message || 'Registration failed'}`);
+            showSignupError(data.message || 'Registration failed. Please try again.');
             return;
         }
 
-        // Try to register via backend API
-        let signupSuccess = false;
-        try {
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
+        console.log(`✅ [SIGNUP SUCCESS] User registered: ${email}`);
+        
+        // Show success message
+        showSignupSuccess(`Account created successfully! You can now login.`);
 
-            const data = await response.json();
+        // Clear form
+        document.getElementById('signupForm')?.reset?.();
 
-            if (!response.ok) {
-                showSignupError(data.error || 'Registration failed. Please try again.');
-                return;
-            }
+        // Switch back to login tab after 2 seconds
+        setTimeout(() => {
+            document.querySelector('input[value="login"]')?.click?.();
+        }, 2000);
 
-            console.log("✅ [MONGODB] User registered successfully");
-            signupSuccess = true;
-        } catch (error) {
-            console.warn("⚠️  [MONGODB] Registration failed:", error.message);
-            console.log("2️⃣  FALLBACK: Saving to local storage...");
-            
-            // Fallback: Save to localStorage
-            signupSuccess = saveUserLocal(email, password, name);
-        }
-
-        if (signupSuccess) {
-            console.log(`✅ [SIGNUP SUCCESS] User: ${email}`);
-            showSignupSuccess(`Welcome! Account created for ${name}. You can now login.`);
-            
-            // Clear form and close modal
-            document.getElementById('signupForm').reset();
-            document.getElementById('signupModal').style.display = 'none';
-            
-            // Clear input fields
-            document.getElementById('username').value = email;
-            document.getElementById('password').value = password;
-        }
     } catch (error) {
         console.error("❌ [SIGNUP FAILED]", error);
-        showSignupError('Signup failed. Please try again.');
+        showSignupError('Failed to connect to server. Please try again.');
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
