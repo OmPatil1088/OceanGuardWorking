@@ -15,6 +15,57 @@ const state = {
 
 let services = [];
 
+const OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter"
+];
+
+async function fetchOverpassWithFailover(query, radius) {
+    const transientStatuses = new Set([429, 500, 502, 503, 504]);
+    let lastError = null;
+
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 18000);
+
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: "data=" + encodeURIComponent(query),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeout);
+
+                if (!response.ok) {
+                    if (transientStatuses.has(response.status)) {
+                        console.warn(`⚠️ [Overpass] ${response.status} from ${endpoint} (attempt ${attempt}/2) at ${radius}m`);
+                        await new Promise(resolve => setTimeout(resolve, 1200 * attempt));
+                        continue;
+                    }
+                    throw new Error(`Overpass API error: ${response.status} from ${endpoint}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                lastError = error;
+                if (attempt >= 2) {
+                    console.warn(`⚠️ [Overpass] Endpoint failed: ${endpoint} at ${radius}m (${error.message})`);
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, 1200 * attempt));
+                }
+            }
+        }
+    }
+
+    throw lastError || new Error('All Overpass endpoints failed');
+}
+
 /* =========================================
    INITIALIZATION
 ========================================= */
@@ -148,63 +199,18 @@ async function fetchNearbyServices() {
 out center;
 `;
 
-        // Retry logic for timeouts
-        let retries = 0;
-        const maxRetries = 2;
-        
-        while (retries < maxRetries) {
-            try {
-                const controller = new AbortController();
-                // Increase timeout to 15 seconds for Overpass
-                const timeout = setTimeout(() => controller.abort(), 15000);
+        try {
+            const data = await fetchOverpassWithFailover(query, radius);
+            const serviceCount = data.elements ? data.elements.length : 0;
 
-                const response = await fetch(
-                    "https://overpass-api.de/api/interpreter",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        body: "data=" + encodeURIComponent(query),
-                        signal: controller.signal
-                    }
-                );
+            console.log(`📍 Found ${serviceCount} services within ${radius}m`);
 
-                clearTimeout(timeout);
-
-                if (!response.ok) {
-                    if (response.status === 504) {
-                        retries++;
-                        console.warn(`⚠️ [Overpass] Gateway timeout (${retries}/${maxRetries} retries) at ${radius}m`);
-                        if (retries < maxRetries) {
-                            // Wait before retrying
-                            await new Promise(r => setTimeout(r, 2000 * retries));
-                            continue;
-                        }
-                    }
-                    throw new Error(`Overpass API error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                const serviceCount = data.elements ? data.elements.length : 0;
-
-                console.log(`📍 Found ${serviceCount} services within ${radius}m`);
-
-                if (serviceCount > 0) {
-                    convertOSMToServices(data.elements || []);
-                    return; // Success - exit the radius loop
-                }
-                break; // Exit retry loop, try next radius
-
-            } catch (error) {
-                retries++;
-                if (retries >= maxRetries) {
-                    console.warn(`❌ [Overpass] Failed after ${maxRetries} retries at ${radius}m: ${error.message}`);
-                    break; // Exit retry loop, try next radius
-                }
-                // Wait before retrying
-                await new Promise(r => setTimeout(r, 1000 * retries));
+            if (serviceCount > 0) {
+                convertOSMToServices(data.elements || []);
+                return;
             }
+        } catch (error) {
+            console.warn(`❌ [Overpass] Failed for ${radius}m radius: ${error.message}`);
         }
     }
 

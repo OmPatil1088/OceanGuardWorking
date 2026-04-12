@@ -322,6 +322,16 @@ let lastPreciseLocationLat = null;
 let lastPreciseLocationLng = null;
 
 const API_BASE = 'http://localhost:5000';
+const INCIDENTS_BACKEND_COOLDOWN_MS = 10 * 60 * 1000;
+const NEWS_FAILURE_COOLDOWN_MS = 60 * 60 * 1000;
+
+let incidentsBackendDisabledUntil = 0;
+let incidentsBackendWarned = false;
+const newsFetchState = {
+    inFlight: false,
+    cooldownUntil: 0,
+    reason: ''
+};
 
 // API Caching & Rate Limiting
 const API_CACHE = {
@@ -808,6 +818,18 @@ async function loadIncidents() {
         return;
     }
 
+    if (Date.now() < incidentsBackendDisabledUntil) {
+        if (!incidentsBackendWarned) {
+            const minsRemaining = Math.ceil((incidentsBackendDisabledUntil - Date.now()) / 60000);
+            console.warn(`⚠️  Incidents backend is temporarily unreachable. Using fallback data for ${minsRemaining} more minute(s).`);
+            incidentsBackendWarned = true;
+        }
+        saveToCache('incidents', sampleIncidents);
+        updateMapAndCases(sampleIncidents);
+        markEnd('loadIncidents');
+        return;
+    }
+
     try {
         console.log(`🔗 Fetching incidents from ${API_BASE}/api/incidents...`);
         const response = await fetch(`${API_BASE}/api/incidents`, { signal: AbortSignal.timeout(5000) });
@@ -830,6 +852,8 @@ async function loadIncidents() {
         }
     } catch (error) {
         console.warn(`⚠️  Failed to load incidents from backend (${API_BASE}):`, error.message);
+        incidentsBackendDisabledUntil = Date.now() + INCIDENTS_BACKEND_COOLDOWN_MS;
+        incidentsBackendWarned = false;
         console.log('📦 Using sample incident data as fallback');
         saveToCache('incidents', sampleIncidents);
         updateMapAndCases(sampleIncidents);
@@ -968,20 +992,40 @@ async function loadNews() {
     }
 
     // Show sample news immediately (don't block UI)
-    const sampleArticles = loadSampleNews();
+    loadSampleNews();
+
+    if (newsFetchState.inFlight) {
+        markEnd('loadNews');
+        return;
+    }
+
+    if (Date.now() < newsFetchState.cooldownUntil) {
+        const minsRemaining = Math.ceil((newsFetchState.cooldownUntil - Date.now()) / 60000);
+        console.log(`ℹ️ [News] Skipping live fetch for ${minsRemaining} minute(s): ${newsFetchState.reason}`);
+        markEnd('loadNews');
+        return;
+    }
     
     // Try to update from GNews API in background (don't block UI)
     console.log('🔄 Updating news from GNews API in background...');
     
-    const API_URL = "https://gnews.io/api/v4/search?q=disaster%20OR%20flood%20OR%20cyclone%20OR%20earthquake&lang=en&country=in&max=6&sortby=publishedAt&token=c8dd2207a7a034c7b3814eca64c4a7d1";
+    newsFetchState.inFlight = true;
 
-    fetch(API_URL, { signal: AbortSignal.timeout(3000) })
+    fetch('/api/news', { signal: AbortSignal.timeout(5000) })
         .then(response => {
             if (!response.ok) {
                 if (response.status === 429) {
                     console.warn('⚠️ [GNews] Rate limit reached. Next update in 24 hours.');
+                    newsFetchState.cooldownUntil = Date.now() + 24 * 60 * 60 * 1000;
+                    newsFetchState.reason = 'Rate limited by news provider';
+                } else if (response.status === 401 || response.status === 403) {
+                    console.warn(`⚠️ [News] API authorization failed (${response.status}). Check server-side GNEWS_API_KEY.`);
+                    newsFetchState.cooldownUntil = Date.now() + 12 * 60 * 60 * 1000;
+                    newsFetchState.reason = 'Missing/invalid server-side API key';
                 } else {
-                    console.warn(`⚠️ [GNews] API error: ${response.status}`);
+                    console.warn(`⚠️ [News] API error: ${response.status}`);
+                    newsFetchState.cooldownUntil = Date.now() + NEWS_FAILURE_COOLDOWN_MS;
+                    newsFetchState.reason = `HTTP ${response.status}`;
                 }
                 return null;
             }
@@ -992,14 +1036,21 @@ async function loadNews() {
                 console.log(`✅ Updated ${data.articles.length} news articles from API`);
                 saveToCache('news', {
                     articles: data.articles,
-                    timestamp: now
+                    timestamp: Date.now()
                 });
+                newsFetchState.cooldownUntil = 0;
+                newsFetchState.reason = '';
                 // Update UI with fresh news
                 renderNewsList(data.articles);
             }
         })
         .catch(error => {
-            console.warn('⚠️ [GNews] Failed to fetch live news:', error.message);
+            console.warn('⚠️ [News] Failed to fetch live news:', error.message);
+            newsFetchState.cooldownUntil = Date.now() + NEWS_FAILURE_COOLDOWN_MS;
+            newsFetchState.reason = error.message || 'Network failure';
+        })
+        .finally(() => {
+            newsFetchState.inFlight = false;
         });
     
     markEnd('loadNews');
@@ -1169,8 +1220,6 @@ document.getElementById('refreshNews').addEventListener('click', function () {
         loadNews();
     }, 400);
 });
-
-document.addEventListener("DOMContentLoaded", loadNews);
 
 // ========================================
 // Cases Table
