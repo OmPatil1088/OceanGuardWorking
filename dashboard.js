@@ -948,9 +948,12 @@ const newsData = [
 
 async function loadNews() {
     markStart('loadNews');
-    const newsList = getElement('newsList');
-    if (!newsList) return;
-    newsList.innerHTML = '';
+    const newsList = document.getElementById('newsList');
+    if (!newsList) {
+        console.error('❌ News list element not found in DOM!');
+        markEnd('loadNews');
+        return;
+    }
 
     // Check cache first (24 hour validity)
     const cachedNews = getFromCache('news');
@@ -962,9 +965,7 @@ async function loadNews() {
         
         if (cacheAge < MAX_CACHE_AGE) {
             console.log(`✅ Using cached news (${Math.round(cacheAge / 1000 / 60)}m old, expires in ${Math.round((MAX_CACHE_AGE - cacheAge) / 1000 / 60)}m)`);
-            markStart('renderNewsList');
             renderNewsList(cachedNews.articles || cachedNews);
-            markEnd('renderNewsList');
             markEnd('loadNews');
             return;
         }
@@ -976,6 +977,7 @@ async function loadNews() {
     
     try {
         console.log('🔄 Fetching latest news from GNews API...');
+        console.log('📡 API URL:', API_URL.split('token=')[0] + 'token=***');
         
         const response = await fetch(API_URL, { 
             signal: AbortSignal.timeout(5000),
@@ -986,19 +988,24 @@ async function loadNews() {
         
         if (!response.ok) {
             if (response.status === 401) {
-                console.warn('⚠️ [GNews] Authentication failed - Invalid API token');
+                console.error('❌ [GNews] Authentication failed - Invalid API token');
             } else if (response.status === 429) {
                 console.warn('⚠️ [GNews] Rate limit reached - Try again shortly');
             } else {
-                console.warn(`⚠️ [GNews] API error: ${response.status} ${response.statusText}`);
+                console.error(`❌ [GNews] API error: ${response.status} ${response.statusText}`);
             }
             throw new Error(`API error: ${response.status}`);
         }
         
         const data = await response.json();
+        console.log('📥 API Response received:', {
+            hasArticles: !!data.articles,
+            articleCount: data.articles ? data.articles.length : 0,
+            status: data.status
+        });
         
         if (data && data.articles && data.articles.length > 0) {
-            console.log(`✅ Loaded ${data.articles.length} articles from GNews API`);
+            console.log(`✅ Successfully loaded ${data.articles.length} articles from GNews API`);
             
             // Cache the fresh news
             saveToCache('news', {
@@ -1009,47 +1016,68 @@ async function loadNews() {
             renderNewsList(data.articles);
         } else {
             console.warn('⚠️ [GNews] No articles returned - using sample data');
-            renderNewsList(loadSampleNews());
+            const sampleNews = loadSampleNews();
+            renderNewsList(sampleNews);
         }
         
     } catch (error) {
-        console.warn(`⚠️ [GNews] Failed to fetch live news: ${error.message}`);
+        console.error(`❌ [GNews] Failed to fetch live news: ${error.message}`);
         console.log('📰 Falling back to sample news data');
         
         // Fallback to sample news
-        renderNewsList(loadSampleNews());
+        const sampleNews = loadSampleNews();
+        renderNewsList(sampleNews);
     }
     
     markEnd('loadNews');
 }
 
 function renderNewsList(articles) {
-    const newsList = getElement('newsList');
-    const featuredNews = getElement('featuredNews');
-    if (!newsList) return;
+    const newsList = document.getElementById('newsList');
+    const featuredNews = document.getElementById('featuredNews');
     
-    const fragment = document.createDocumentFragment();
+    if (!newsList) {
+        console.error('❌ News list container not found!');
+        return;
+    }
+    
+    if (!articles || articles.length === 0) {
+        console.warn('⚠️ No articles to render');
+        newsList.innerHTML = '<p style="padding: 20px; text-align: center;">No news available</p>';
+        return;
+    }
+    
+    console.log(`📰 Rendering ${articles.length} articles to news section`);
+    
+    // Clear existing content
     newsList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
 
     // Show featured breaking news (first article)
-    if (articles && articles.length > 0) {
+    if (articles.length > 0) {
         const featuredArticle = articles[0];
         const featuredBadge = getBadgeType(featuredArticle.title || '');
         const featuredTitle = featuredArticle.title || '';
         const featuredTime = featuredArticle.publishedAt ? formatTime(featuredArticle.publishedAt) : (featuredArticle.time || 'Recently');
         
         if (featuredNews) {
-            document.getElementById('featuredTitle').textContent = featuredTitle;
-            document.getElementById('featuredTime').textContent = featuredTime;
-            if (featuredArticle.url) {
-                document.getElementById('featuredLink').href = featuredArticle.url;
+            const featuredTitleEl = document.getElementById('featuredTitle');
+            const featuredTimeEl = document.getElementById('featuredTime');
+            const featuredLinkEl = document.getElementById('featuredLink');
+            
+            if (featuredTitleEl) featuredTitleEl.textContent = featuredTitle;
+            if (featuredTimeEl) featuredTimeEl.textContent = featuredTime;
+            if (featuredLinkEl && featuredArticle.url) {
+                featuredLinkEl.href = featuredArticle.url;
             }
             featuredNews.style.display = 'block';
+            console.log('✅ Featured news updated:', featuredTitle);
         }
     }
 
     // Render remaining news items (skip first one since it's featured)
-    const newsItemsToRender = articles && articles.length > 1 ? articles.slice(1) : articles;
+    const newsItemsToRender = articles.length > 1 ? articles.slice(1) : [];
+    console.log(`📝 Rendering ${newsItemsToRender.length} news items`);
     
     newsItemsToRender.forEach((article, index) => {
         const badge = getBadgeType(article.title || article.badge);
@@ -1058,7 +1086,7 @@ function renderNewsList(articles) {
         newsItem.style.animationDelay = `${index * 0.1}s`;
         newsItem.style.animation = 'fadeIn 0.4s ease-out both';
 
-        const displayTitle = article.title || (typeof article === 'string' ? article : '');
+        const displayTitle = article.title || (typeof article === 'string' ? article : 'Breaking News');
         const displayTime = article.publishedAt ? formatTime(article.publishedAt) : (article.time || 'Recently');
 
         newsItem.innerHTML = `
@@ -1072,79 +1100,63 @@ function renderNewsList(articles) {
                 window.open(article.url, "_blank");
             });
             newsItem.style.cursor = 'pointer';
+            newsItem.title = 'Click to read more';
         }
 
         fragment.appendChild(newsItem);
     });
     
-    // Single DOM operation
-    newsList.appendChild(fragment);
+    // Single DOM operation - append all at once
+    if (newsItemsToRender.length > 0) {
+        newsList.appendChild(fragment);
+        console.log(`✅ Successfully rendered ${newsItemsToRender.length} news items`);
+    } else {
+        newsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #888;">Only featured news available</p>';
+    }
 }
 
 function loadSampleNews() {
-    const newsList = document.getElementById('newsList');
-    const featuredNews = document.getElementById('featuredNews');
-    newsList.innerHTML = '';
-
     const sampleLiveNews = [
         {
             badge: 'breaking',
             title: 'Heavy rainfall triggers flash floods in coastal districts - Urgent evacuation underway',
+            publishedAt: new Date(Date.now() - 15 * 60000).toISOString(),
             time: new Date(Date.now() - 15 * 60000).toISOString()
         },
         {
             badge: 'breaking',
             title: 'Strong earthquake tremors felt across multiple states - No casualties reported yet',
+            publishedAt: new Date(Date.now() - 45 * 60000).toISOString(),
             time: new Date(Date.now() - 45 * 60000).toISOString()
         },
         {
             badge: 'alert',
             title: 'Severe weather alert issued for tomorrow - Heavy wind and rain expected',
+            publishedAt: new Date(Date.now() - 90 * 60000).toISOString(),
             time: new Date(Date.now() - 90 * 60000).toISOString()
         },
         {
             badge: 'update',
             title: 'Rescue operations continue in flood-affected areas - Over 500 people evacuated',
+            publishedAt: new Date(Date.now() - 2.5 * 3600000).toISOString(),
             time: new Date(Date.now() - 2.5 * 3600000).toISOString()
         },
         {
             badge: 'update',
             title: 'Government opens 25 relief centers in disaster zones - Medical aid being provided',
+            publishedAt: new Date(Date.now() - 3.5 * 3600000).toISOString(),
             time: new Date(Date.now() - 3.5 * 3600000).toISOString()
         },
         {
             badge: 'alert',
             title: 'Landslide risk warning for hilly regions - Residents advised to stay alert',
+            publishedAt: new Date(Date.now() - 4.5 * 3600000).toISOString(),
             time: new Date(Date.now() - 4.5 * 3600000).toISOString()
         }
     ];
 
-    // Show featured breaking news
-    if (sampleLiveNews.length > 0) {
-        const featured = sampleLiveNews[0];
-        if (featuredNews) {
-            document.getElementById('featuredTitle').textContent = featured.title;
-            document.getElementById('featuredTime').textContent = formatTime(featured.time);
-            document.getElementById('featuredLink').href = '#';
-            featuredNews.style.display = 'block';
-        }
-    }
-
-    // Show remaining news items (skip first one)
-    sampleLiveNews.slice(1).forEach((news, index) => {
-        const newsItem = document.createElement('div');
-        newsItem.className = 'news-item';
-        newsItem.style.animationDelay = `${index * 0.1}s`;
-        newsItem.style.animation = 'fadeIn 0.4s ease-out both';
-
-        newsItem.innerHTML = `
-            <div class="news-badge badge-${news.badge}">${news.badge}</div>
-            <div class="news-title">${news.title}</div>
-            <div class="news-time">${formatTime(news.time)}</div>
-        `;
-
-        newsList.appendChild(newsItem);
-    });
+    // Just return the sample news array - renderNewsList will handle the rendering
+    return sampleLiveNews;
 }
 
 function getBadgeType(title) {
