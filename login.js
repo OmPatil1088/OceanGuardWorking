@@ -46,12 +46,10 @@ window.addEventListener('play', (e) => {
 }, true);
 
 // ========================================
-// Firebase User Creation Disabled
+// Authentication Provider Setup
 // ========================================
-// Firebase authentication is not properly configured in this project
-// Using fallback config.json authentication instead
-async function createTestUsers() {
-    console.log("📱 Using fallback authentication with config.json (Firebase config not available)");
+function initializeAuthProvider() {
+    console.log("📱 Using secure backend authentication (/api/login)");
 }
 
 // ========================================
@@ -64,35 +62,29 @@ let adminConfiguration = {
 
 // Load admin configuration from config.json (FALLBACK ONLY)
 async function loadAdminConfig() {
-    console.log("📄 Loading fallback admin configuration from config.json...");
+    console.log("📄 Loading admin email configuration...");
     try {
         const response = await fetch('config.json');
         const config = await response.json();
-        adminConfiguration = config;
-        console.log('✅ [FALLBACK] Admin configuration loaded from config.json:', config.adminEmails);
+        adminConfiguration = {
+            adminEmails: Array.isArray(config.adminEmails) ? config.adminEmails : adminConfiguration.adminEmails
+        };
+        console.log(`✅ Admin configuration loaded (${adminConfiguration.adminEmails.length} admin email(s))`);
     } catch (error) {
-        console.warn('⚠️  [FALLBACK] Could not load config.json');
+        console.warn('⚠️  Could not load admin config, using default admin list');
     }
 }
 
-// Initialize: Try Firebase first, then load fallback
+// Initialize authentication system
 async function initializeAuth() {
     console.log("🔐 ============ AUTHENTICATION INIT START ============");
-    console.log("📋 VALID TEST CREDENTIALS (use these to login):");
-    console.log("  ADMIN ACCOUNTS:");
-    console.log("    - ompatil@hazardwatch.com / Om1@121204");
-    console.log("    - admin@example.com / admin123");
-    console.log("  REGULAR USER ACCOUNTS:");
-    console.log("    - user@example.com / user123");
-    console.log("    - john@example.com / john123");
-    console.log("    - sarah@example.com / sarah123");
-    console.log("1️⃣  PRIMARY: Reading Firebase config...");
-    await createTestUsers();
+    console.log("1️⃣  PRIMARY: Initializing auth provider...");
+    initializeAuthProvider();
     
-    console.log("2️⃣  FALLBACK: Loading local config.json as backup...");
+    console.log("2️⃣  Loading admin email config...");
     await loadAdminConfig();
     
-    console.log("✅ [AUTH SYSTEM READY] Using local config.json authentication");
+    console.log("✅ [AUTH SYSTEM READY] Using secure backend login");
     console.log("🔐 ============ AUTHENTICATION INIT COMPLETE ============");
 }
 
@@ -216,10 +208,10 @@ async function handleLoginSubmit(e) {
         submitBtn.disabled = true;
 
         console.log("🔐 LOGIN ATTEMPT START");
-        console.log("✅ Using local authentication with config.json...");
+        console.log("✅ Authenticating with backend API...");
 
-        // AUTHENTICATION METHOD: Check local config.json
-        let authSuccess = checkLocalConfig(email, password);
+        // PRIMARY: Authenticate via backend API, fallback to local users only.
+        let authSuccess = await authenticateUser(email, password);
         
         if (!authSuccess) {
             console.log(`❌ [AUTH FAILED] Invalid credentials for: ${email}`);
@@ -261,13 +253,39 @@ async function handleLoginSubmit(e) {
     }
 }
 
-/**
- * FALLBACK: Check if user exists in local config.json
- * Only used if Firebase API fails
- */
-function checkLocalConfig(email, password) {
+async function authenticateUser(email, password) {
     try {
-        // First check localStorage for newly signed up users
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password }),
+            signal: AbortSignal.timeout(5000)
+        });
+
+        if (response.ok) {
+            return true;
+        }
+
+        if (response.status === 401) {
+            return false;
+        }
+
+        console.warn(`⚠️  Backend auth returned ${response.status}, checking local fallback users`);
+    } catch (error) {
+        console.warn('⚠️  Backend auth unavailable, checking local fallback users:', error.message);
+    }
+
+    return checkLocalUsers(email, password);
+}
+
+/**
+ * Fallback: check localStorage users only.
+ */
+function checkLocalUsers(email, password) {
+    try {
+        // Check localStorage for users created on this device
         const localUsers = getLocalUsers();
         const localUser = localUsers.find(u => u.email === email && u.password === password);
         if (localUser) {
@@ -275,28 +293,10 @@ function checkLocalConfig(email, password) {
             return true;
         }
 
-        // Then check config.json test users
-        if (!adminConfiguration.testUsers) {
-            console.warn("⚠️  No testUsers in config.json");
-            return false;
-        }
-
-        const allUsers = [
-            ...adminConfiguration.testUsers.admins,
-            ...adminConfiguration.testUsers.regularUsers
-        ];
-
-        const user = allUsers.find(u => u.email === email && u.password === password);
-        
-        if (user) {
-            console.log(`✓ Found user in config.json: ${email}`);
-            return true;
-        } else {
-            console.log(`✗ User not found in config.json: ${email}`);
-            return false;
-        }
+        console.log(`✗ User not found in localStorage fallback: ${email}`);
+        return false;
     } catch (error) {
-        console.error("⚠️  Error checking local config:", error);
+        console.error("⚠️  Error checking local users:", error);
         return false;
     }
 }
@@ -461,18 +461,6 @@ async function checkIfUserExists(email) {
     if (localUsers.find(u => u.email === email)) {
         console.log('User exists in localStorage');
         return true;
-    }
-
-    // Check config.json
-    if (adminConfiguration.testUsers) {
-        const allConfigUsers = [
-            ...adminConfiguration.testUsers.admins,
-            ...adminConfiguration.testUsers.regularUsers
-        ];
-        if (allConfigUsers.find(u => u.email === email)) {
-            console.log('User exists in config.json');
-            return true;
-        }
     }
 
     return false;
