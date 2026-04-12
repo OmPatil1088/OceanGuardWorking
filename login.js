@@ -1,18 +1,21 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, where, getDocs, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCFYKtb_fNUtLA3Yz0Ssx4PoBoKQIQxOM0",
-    authDomain: "disaster-ai-240b7.firebaseapp.com",
-    projectId: "disaster-ai-240b7",
+    apiKey: "AIzaSyCiOVDsusUhUSRW-xwMocoG5li39PsfM1Q",
+    authDomain: "ocean-hazard-a459e.firebaseapp.com",
+    projectId: "ocean-hazard-a459e",
+    storageBucket: "ocean-hazard-a459e.firebasestorage.app",
+    messagingSenderId: "555157224442",
+    appId: "1:555157224442:web:c1a5ab694d0c9331fc0243"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-console.log("✓ Firebase initialized for fallback support");
+console.log("✅ Firebase initialized successfully with Firestore enabled");
 
 // ========================================
 // Global Error Handlers
@@ -46,12 +49,117 @@ window.addEventListener('play', (e) => {
 }, true);
 
 // ========================================
-// Firebase User Creation Disabled
+// Firestore User Management
 // ========================================
-// Firebase authentication is not properly configured in this project
-// Using fallback config.json authentication instead
-async function createTestUsers() {
-    console.log("📱 Using fallback authentication with config.json (Firebase config not available)");
+
+// Create user in Firestore
+async function createUserInFirestore(uid, email, password, fullName = '') {
+    try {
+        const userRef = doc(db, 'users', uid);
+        const userData = {
+            uid: uid,
+            email: email,
+            fullName: fullName,
+            role: email.includes('admin') || email.includes('ompatil') ? 'admin' : 'user',
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            active: true
+        };
+        
+        await setDoc(userRef, userData);
+        console.log(`✅ [Firestore] User created: ${email}`);
+        return userData;
+    } catch (error) {
+        console.error('❌ [Firestore] Error creating user:', error.message);
+        throw error;
+    }
+}
+
+// Register new user (Firestore + Firebase Auth)
+async function registerUserWithFirestore(email, password, fullName) {
+    try {
+        console.log(`🔄 Registering user: ${email}`);
+        
+        // Create Firebase Auth user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
+        
+        // Store user data in Firestore
+        await createUserInFirestore(uid, email, password, fullName);
+        
+        console.log(`✅ User registered successfully: ${email}`);
+        return { success: true, uid, email };
+    } catch (error) {
+        console.error('❌ Registration error:', error.message);
+        throw error;
+    }
+}
+
+// Get user from Firestore by email
+async function getUserFromFirestore(email) {
+    try {
+        const q = query(collection(db, 'users'), where('email', '==', email));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+            return querySnapshot.docs[0].data();
+        }
+        return null;
+    } catch (error) {
+        console.warn('⚠️ [Firestore] Error fetching user:', error.message);
+        return null;
+    }
+}
+
+// Update last login in Firestore
+async function updateLastLoginInFirestore(uid) {
+    try {
+        const userRef = doc(db, 'users', uid);
+        await setDoc(userRef, { lastLogin: new Date().toISOString() }, { merge: true });
+    } catch (error) {
+        console.warn('⚠️ [Firestore] Could not update last login:', error.message);
+    }
+}
+
+// Create test users in Firestore (optional)
+async function createTestUsersInFirestore() {
+    const testUsers = [
+        { email: 'ompatil@hazardwatch.com', password: 'Om1@121204', fullName: 'Om Patil', role: 'admin' },
+        { email: 'admin@example.com', password: 'admin123', fullName: 'Admin User', role: 'admin' },
+        { email: 'user@example.com', password: 'user123', fullName: 'Test User', role: 'user' },
+        { email: 'john@example.com', password: 'john123', fullName: 'John Doe', role: 'user' },
+        { email: 'sarah@example.com', password: 'sarah123', fullName: 'Sarah Smith', role: 'user' }
+    ];
+
+    console.log('🔄 Syncing test users to Firestore...');
+    
+    for (const testUser of testUsers) {
+        try {
+            const existingUser = await getUserFromFirestore(testUser.email);
+            
+            if (!existingUser) {
+                // Try to create via Firebase Auth
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, testUser.email, testUser.password);
+                    await createUserInFirestore(userCredential.user.uid, testUser.email, testUser.password, testUser.fullName);
+                    console.log(`✅ Test user created: ${testUser.email}`);
+                } catch (authError) {
+                    // User might already exist in Firebase Auth, just add to Firestore
+                    if (authError.code === 'auth/email-already-in-use') {
+                        console.log(`ℹ️  Test user already exists in Firebase Auth: ${testUser.email}`);
+                    } else {
+                        console.warn(`⚠️ Could not create auth user: ${testUser.email} - ${authError.message}`);
+                    }
+                }
+            } else {
+                console.log(`ℹ️  Test user already in Firestore: ${testUser.email}`);
+            }
+        } catch (error) {
+            console.warn(`⚠️ Error processing test user ${testUser.email}:`, error.message);
+        }
+    }
+    
+    console.log('✅ Test users sync complete');
 }
 
 // ========================================
@@ -75,7 +183,7 @@ async function loadAdminConfig() {
     }
 }
 
-// Initialize: Try Firebase first, then load fallback
+// Initialize: Load from Firestore and backup with config.json
 async function initializeAuth() {
     console.log("🔐 ============ AUTHENTICATION INIT START ============");
     console.log("📋 VALID TEST CREDENTIALS (use these to login):");
@@ -86,13 +194,14 @@ async function initializeAuth() {
     console.log("    - user@example.com / user123");
     console.log("    - john@example.com / john123");
     console.log("    - sarah@example.com / sarah123");
-    console.log("1️⃣  PRIMARY: Reading Firebase config...");
-    await createTestUsers();
+    
+    console.log("1️⃣  PRIMARY: Initializing Firestore...");
+    await createTestUsersInFirestore();
     
     console.log("2️⃣  FALLBACK: Loading local config.json as backup...");
     await loadAdminConfig();
     
-    console.log("✅ [AUTH SYSTEM READY] Using local config.json authentication");
+    console.log("✅ [AUTH SYSTEM READY] Using Firestore with config.json fallback");
     console.log("🔐 ============ AUTHENTICATION INIT COMPLETE ============");
 }
 
@@ -216,10 +325,49 @@ async function handleLoginSubmit(e) {
         submitBtn.disabled = true;
 
         console.log("🔐 LOGIN ATTEMPT START");
-        console.log("✅ Using local authentication with config.json...");
+        console.log("1️⃣  PRIMARY: Trying Firebase Firestore authentication...");
 
-        // AUTHENTICATION METHOD: Check local config.json
-        let authSuccess = checkLocalConfig(email, password);
+        let authSuccess = false;
+        let userRole = 'user';
+        let userData = null;
+
+        // PRIMARY: Try Firebase Authentication
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const uid = userCredential.user.uid;
+            
+            console.log(`✅ [FIREBASE AUTH SUCCESS] UID: ${uid}`);
+            
+            // Get user data from Firestore
+            userData = await getUserFromFirestore(email);
+            
+            if (userData) {
+                userRole = userData.role || 'user';
+                console.log(`✅ [FIRESTORE] User found: ${email} | Role: ${userRole}`);
+                
+                // Update last login
+                await updateLastLoginInFirestore(uid);
+                authSuccess = true;
+            } else {
+                console.warn(`⚠️  [FIRESTORE] User not found in database, creating entry...`);
+                await createUserInFirestore(uid, email, password);
+                userRole = email.includes('admin') ? 'admin' : 'user';
+                authSuccess = true;
+            }
+        } catch (firebaseError) {
+            console.warn(`⚠️  [FIREBASE AUTH] Failed: ${firebaseError.message}`);
+            console.log("2️⃣  FALLBACK: Using local config.json authentication...");
+            
+            // FALLBACK: Check local config
+            authSuccess = checkLocalConfig(email, password);
+            
+            if (authSuccess) {
+                // Determine role from local config
+                const isAdmin = adminConfiguration.adminEmails.includes(email);
+                userRole = isAdmin ? 'admin' : 'user';
+                console.log(`✅ [LOCAL AUTH] Using config.json: ${email} | Role: ${userRole}`);
+            }
+        }
         
         if (!authSuccess) {
             console.log(`❌ [AUTH FAILED] Invalid credentials for: ${email}`);
@@ -229,29 +377,20 @@ async function handleLoginSubmit(e) {
             return;
         }
 
-        console.log("✅ [AUTH SUCCESS] Authenticated using local config.json");
+        // Store user session
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('username', email);
+        sessionStorage.setItem('userRole', userRole);
+        sessionStorage.setItem('isAdmin', userRole === 'admin' ? 'true' : 'false');
 
-        // If authentication successful
-        if (authSuccess) {
-            // Store user session
-            sessionStorage.setItem('isLoggedIn', 'true');
-            sessionStorage.setItem('username', email);
-
-            // Determine user role based on admin configuration
-            const isAdmin = adminConfiguration.adminEmails.includes(email);
-            const userRole = isAdmin ? 'admin' : 'user';
-            sessionStorage.setItem('userRole', userRole);
-            sessionStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
-
-            if (remember) {
-                localStorage.setItem('rememberedUser', email);
-            }
-
-            console.log(`✅ [LOGIN COMPLETE] User: ${email} | Role: ${userRole}`);
-
-            // Redirect to dashboard
-            window.location.href = 'dashboard.html';
+        if (remember) {
+            localStorage.setItem('rememberedUser', email);
         }
+
+        console.log(`✅ [LOGIN COMPLETE] User: ${email} | Role: ${userRole}`);
+
+        // Redirect to dashboard
+        window.location.href = 'dashboard.html';
     } catch (error) {
         console.error("❌ [LOGIN FAILED]", error);
         showLoginError('An unexpected error occurred. Please try again.');
@@ -391,7 +530,7 @@ async function handleSignupSubmit(e) {
         submitBtn.innerHTML = '⏳ Creating account...';
         submitBtn.disabled = true;
 
-        console.log("1️⃣  PRIMARY: Trying Firebase Registration...");
+        console.log("1️⃣  PRIMARY: Trying Firebase Registration with Firestore...");
 
         // Check if user already exists (Firebase or local)
         const userExists = await checkIfUserExists(email);
@@ -400,15 +539,14 @@ async function handleSignupSubmit(e) {
             return;
         }
 
-        // Try to create user in Firebase
+        // Try to create user in Firebase + Firestore using unified function
         let signupSuccess = false;
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            console.log("✅ [FIREBASE] User created successfully");
-            signupSuccess = true;
-
-            // Save to Firestore
-            await saveUserToFirestore(email, name, 'user');
+            const result = await registerUserWithFirestore(email, password, name);
+            if (result.success) {
+                console.log("✅ [FIREBASE + FIRESTORE] User created and saved successfully");
+                signupSuccess = true;
+            }
         } catch (error) {
             console.warn("⚠️  [FIREBASE] Registration failed:", error.code);
             console.log("2️⃣  FALLBACK: Saving to local storage...");
