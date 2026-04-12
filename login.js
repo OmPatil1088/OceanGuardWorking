@@ -1,9 +1,18 @@
-// ========================================
-// Authentication Configuration
-// Backend: MongoDB (via /api/login and /api/register)
-// ========================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-console.log("✅ Authentication system initialized - using MongoDB backend APIs");
+const firebaseConfig = {
+    apiKey: "AIzaSyCFYKtb_fNUtLA3Yz0Ssx4PoBoKQIQxOM0",
+    authDomain: "disaster-ai-240b7.firebaseapp.com",
+    projectId: "disaster-ai-240b7",
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+console.log("✓ Firebase initialized for fallback support");
 
 // ========================================
 // Global Error Handlers
@@ -37,6 +46,14 @@ window.addEventListener('play', (e) => {
 }, true);
 
 // ========================================
+// Firebase User Creation Disabled
+// ========================================
+// Firebase authentication is not properly configured in this project
+// Using fallback config.json authentication instead
+async function createTestUsers() {
+    console.log("📱 Using fallback authentication with config.json (Firebase config not available)");
+}
+
 // ========================================
 // Configuration & Admin Management (FALLBACK ONLY)
 // ========================================
@@ -58,10 +75,9 @@ async function loadAdminConfig() {
     }
 }
 
-// Initialize: Load admin configuration
+// Initialize: Try Firebase first, then load fallback
 async function initializeAuth() {
     console.log("🔐 ============ AUTHENTICATION INIT START ============");
-    console.log("📋 Using MongoDB backend for authentication");
     console.log("📋 VALID TEST CREDENTIALS (use these to login):");
     console.log("  ADMIN ACCOUNTS:");
     console.log("    - ompatil@hazardwatch.com / Om1@121204");
@@ -70,11 +86,13 @@ async function initializeAuth() {
     console.log("    - user@example.com / user123");
     console.log("    - john@example.com / john123");
     console.log("    - sarah@example.com / sarah123");
+    console.log("1️⃣  PRIMARY: Reading Firebase config...");
+    await createTestUsers();
     
-    console.log("1️⃣  Loading admin configuration...");
+    console.log("2️⃣  FALLBACK: Loading local config.json as backup...");
     await loadAdminConfig();
     
-    console.log("✅ [AUTH SYSTEM READY] Using MongoDB backend with local fallback");
+    console.log("✅ [AUTH SYSTEM READY] Using local config.json authentication");
     console.log("🔐 ============ AUTHENTICATION INIT COMPLETE ============");
 }
 
@@ -198,54 +216,45 @@ async function handleLoginSubmit(e) {
         submitBtn.disabled = true;
 
         console.log("🔐 LOGIN ATTEMPT START");
-        console.log("1️⃣  Authenticating via MongoDB backend...");
+        console.log("✅ Using local authentication with config.json...");
 
-        // Get backend API URL from location
-        const baseUrl = window.location.protocol + '//' + window.location.host;
-        const apiEndpoint = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') 
-            ? 'http://localhost:5000/api/auth/login'
-            : '/api/auth/login';
-
-        // Call backend API for authentication
-        const response = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.log(`❌ [AUTH FAILED] ${data.message || 'Invalid credentials'}`);
-            showLoginError(data.message || 'Invalid email or password. Please check and try again.');
+        // AUTHENTICATION METHOD: Check local config.json
+        let authSuccess = checkLocalConfig(email, password);
+        
+        if (!authSuccess) {
+            console.log(`❌ [AUTH FAILED] Invalid credentials for: ${email}`);
+            showLoginError('Invalid email or password. Please check and try again.');
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
             return;
         }
 
-        // Authentication successful
-        const user = data.data.user;
-        console.log(`✅ [AUTH SUCCESS] User authenticated: ${email} | Role: ${user.role}`);
+        console.log("✅ [AUTH SUCCESS] Authenticated using local config.json");
 
-        // Store user session from backend response
-        sessionStorage.setItem('isLoggedIn', 'true');
-        sessionStorage.setItem('username', user.email);
-        sessionStorage.setItem('userId', user.id);
-        sessionStorage.setItem('userRole', user.role);
-        sessionStorage.setItem('isAdmin', user.role === 'admin' ? 'true' : 'false');
-        sessionStorage.setItem('fullName', user.fullName);
+        // If authentication successful
+        if (authSuccess) {
+            // Store user session
+            sessionStorage.setItem('isLoggedIn', 'true');
+            sessionStorage.setItem('username', email);
 
-        if (remember) {
-            localStorage.setItem('rememberedUser', user.email);
+            // Determine user role based on admin configuration
+            const isAdmin = adminConfiguration.adminEmails.includes(email);
+            const userRole = isAdmin ? 'admin' : 'user';
+            sessionStorage.setItem('userRole', userRole);
+            sessionStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
+
+            if (remember) {
+                localStorage.setItem('rememberedUser', email);
+            }
+
+            console.log(`✅ [LOGIN COMPLETE] User: ${email} | Role: ${userRole}`);
+
+            // Redirect to dashboard
+            window.location.href = 'dashboard.html';
         }
-
-        console.log(`✅ [LOGIN COMPLETE] User: ${email} | Role: ${user.role}`);
-
-        // Redirect to dashboard
-        window.location.href = 'dashboard.html';
     } catch (error) {
         console.error("❌ [LOGIN FAILED]", error);
-        showLoginError('Failed to connect to server. Please try again.');
+        showLoginError('An unexpected error occurred. Please try again.');
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -382,56 +391,47 @@ async function handleSignupSubmit(e) {
         submitBtn.innerHTML = '⏳ Creating account...';
         submitBtn.disabled = true;
 
-        console.log("1️⃣  Registering via MongoDB backend...");
+        console.log("1️⃣  PRIMARY: Trying Firebase Registration...");
 
-        // Get backend API URL
-        const baseUrl = window.location.protocol + '//' + window.location.host;
-        const apiEndpoint = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') 
-            ? 'http://localhost:5000/api/auth/register'
-            : '/api/auth/register';
-
-        // Split name into first and last name
-        const nameParts = name.split(' ');
-        const firstName = nameParts[0];
-        const lastName = nameParts.slice(1).join(' ') || '';
-
-        // Register via backend API
-        const response = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email,
-                password,
-                firstName,
-                lastName,
-                fullName: name
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.log(`❌ [SIGNUP FAILED] ${data.message || 'Registration failed'}`);
-            showSignupError(data.message || 'Registration failed. Please try again.');
+        // Check if user already exists (Firebase or local)
+        const userExists = await checkIfUserExists(email);
+        if (userExists) {
+            showSignupError('This email is already registered. Please login instead.');
             return;
         }
 
-        console.log(`✅ [SIGNUP SUCCESS] User registered: ${email}`);
-        
-        // Show success message
-        showSignupSuccess(`Account created successfully! You can now login.`);
+        // Try to create user in Firebase
+        let signupSuccess = false;
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            console.log("✅ [FIREBASE] User created successfully");
+            signupSuccess = true;
 
-        // Clear form
-        document.getElementById('signupForm')?.reset?.();
+            // Save to Firestore
+            await saveUserToFirestore(email, name, 'user');
+        } catch (error) {
+            console.warn("⚠️  [FIREBASE] Registration failed:", error.code);
+            console.log("2️⃣  FALLBACK: Saving to local storage...");
+            
+            // Fallback: Save to localStorage
+            signupSuccess = saveUserLocal(email, password, name);
+        }
 
-        // Switch back to login tab after 2 seconds
-        setTimeout(() => {
-            document.querySelector('input[value="login"]')?.click?.();
-        }, 2000);
-
+        if (signupSuccess) {
+            console.log(`✅ [SIGNUP SUCCESS] User: ${email}`);
+            showSignupSuccess(`Welcome! Account created for ${name}. You can now login.`);
+            
+            // Clear form and close modal
+            document.getElementById('signupForm').reset();
+            document.getElementById('signupModal').style.display = 'none';
+            
+            // Clear input fields
+            document.getElementById('username').value = email;
+            document.getElementById('password').value = password;
+        }
     } catch (error) {
         console.error("❌ [SIGNUP FAILED]", error);
-        showSignupError('Failed to connect to server. Please try again.');
+        showSignupError('Signup failed. Please try again.');
     } finally {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
