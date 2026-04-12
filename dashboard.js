@@ -971,15 +971,12 @@ async function loadNews() {
         }
     }
 
-    // Fetch from real GNews API
-    const API_TOKEN = '659d783d93126a02c93e3fdca350a350';
-    const API_URL = `https://gnews.io/api/v4/search?q=disaster%20OR%20flood%20OR%20cyclone%20OR%20earthquake%20OR%20emergency&lang=en&country=in&max=10&sortby=publishedAt&token=${API_TOKEN}`;
-    
+    // Fetch from backend API endpoint (no CORS issues!)
     try {
-        console.log('🔄 Fetching latest news from GNews API...');
-        console.log('📡 API URL:', API_URL.split('token=')[0] + 'token=***');
+        console.log('🔄 Fetching latest news from backend API...');
         
-        const response = await fetch(API_URL, { 
+        const response = await fetch('/api/news', { 
+            method: 'GET',
             signal: AbortSignal.timeout(5000),
             headers: {
                 'Accept': 'application/json'
@@ -988,20 +985,20 @@ async function loadNews() {
         
         if (!response.ok) {
             if (response.status === 401) {
-                console.error('❌ [GNews] Authentication failed - Invalid API token');
+                console.error('❌ [News] Authentication failed - Invalid API token');
             } else if (response.status === 429) {
-                console.warn('⚠️ [GNews] Rate limit reached - Try again shortly');
+                console.warn('⚠️ [News] Rate limit reached - Try again shortly');
             } else {
-                console.error(`❌ [GNews] API error: ${response.status} ${response.statusText}`);
+                console.error(`❌ [News] API error: ${response.status} ${response.statusText}`);
             }
             throw new Error(`API error: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('📥 API Response received:', {
+        console.log('📥 Backend API response received:', {
             hasArticles: !!data.articles,
             articleCount: data.articles ? data.articles.length : 0,
-            status: data.status
+            sourcedFrom: data.sourcedFrom || 'Unknown'
         });
         
         if (data && data.articles && data.articles.length > 0) {
@@ -1015,13 +1012,13 @@ async function loadNews() {
             
             renderNewsList(data.articles);
         } else {
-            console.warn('⚠️ [GNews] No articles returned - using sample data');
+            console.warn('⚠️ [News] No articles returned - using sample data');
             const sampleNews = loadSampleNews();
             renderNewsList(sampleNews);
         }
         
     } catch (error) {
-        console.error(`❌ [GNews] Failed to fetch live news: ${error.message}`);
+        console.error(`❌ [News] Failed to fetch live news: ${error.message}`);
         console.log('📰 Falling back to sample news data');
         
         // Fallback to sample news
