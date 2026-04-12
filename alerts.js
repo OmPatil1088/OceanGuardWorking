@@ -76,18 +76,39 @@ let currentAlerts = [...alertsData];
 let alertHistory = [];
 let userLocation = null;
 
+// Cache for frequently accessed DOM elements
+const alertsCache = {
+    feed: null,
+    filters: {},
+    handlers: {
+        distance: null,
+        disaster: null,
+        severity: null
+    }
+};
+
+function cacheAlertElements() {
+    alertsCache.feed = document.getElementById('alertsFeed');
+    alertsCache.filters.distance = document.getElementById('distanceFilter');
+    alertsCache.filters.disaster = document.getElementById('alertDisasterFilter');
+    alertsCache.filters.severity = document.getElementById('alertSeverityFilter');
+}
+
 function initializeAlerts() {
+    cacheAlertElements();
     renderAlerts(currentAlerts);
     initializeAlertFilters();
     initializeSubscriptionHandlers();
 }
 
 // ========================================
-// A) Real-Time Alerts Feed
+// A) Real-Time Alerts Feed with Optimization
 // ========================================
 
 function renderAlerts(alerts) {
-    const alertsFeed = document.getElementById('alertsFeed');
+    const alertsFeed = alertsCache.feed || document.getElementById('alertsFeed');
+    if (!alertsFeed) return;
+    
     alertsFeed.innerHTML = '';
 
     if (alerts.length === 0) {
@@ -95,10 +116,16 @@ function renderAlerts(alerts) {
         return;
     }
 
+    // Use DocumentFragment for batch DOM insertion
+    const fragment = document.createDocumentFragment();
+    
     alerts.forEach(alert => {
         const card = createAlertCard(alert);
-        alertsFeed.appendChild(card);
+        fragment.appendChild(card);
     });
+    
+    // Single DOM operation
+    alertsFeed.appendChild(fragment);
 }
 
 function createAlertCard(alert) {
@@ -118,7 +145,7 @@ function createAlertCard(alert) {
 
     card.innerHTML = `
         <div class="alert-header">
-            <div class="alert-title">${typeEmoji[alert.type]} ${alert.title}</div>
+            <div class="alert-title">${typeEmoji[alert.type] || '⚠️'} ${alert.title}</div>
             <span class="alert-severity ${alert.severity}">
                 ${alert.severity.toUpperCase()}
             </span>
@@ -134,6 +161,7 @@ function createAlertCard(alert) {
         </div>
     `;
 
+    // Use arrow function to avoid context issues
     card.addEventListener('click', () => {
         addToAlertHistory(alert);
     });
@@ -146,33 +174,48 @@ function getTimeAgo(timestamp) {
     const diff = now - timestamp;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
 
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
-    return Math.floor(hours / 24) + 'd ago';
+    return `${days}d ago`;
 }
 
 // ========================================
-// B) Alert Filters
+// B) Alert Filters with Optimization
 // ========================================
 
 function initializeAlertFilters() {
-    const distanceFilter = document.getElementById('distanceFilter');
-    const disasterFilter = document.getElementById('alertDisasterFilter');
-    const severityFilter = document.getElementById('alertSeverityFilter');
+    if (!alertsCache.filters.distance) cacheAlertElements();
+    
+    const handlers = [
+        alertsCache.filters.distance,
+        alertsCache.filters.disaster,
+        alertsCache.filters.severity
+    ];
 
-    [distanceFilter, disasterFilter, severityFilter].forEach(filter => {
+    handlers.forEach(filter => {
         if (filter) {
-            filter.addEventListener('change', applyAlertFilters);
+            // Use debounced filter to prevent excessive renders
+            const debouncedFilter = debounceFilter(applyAlertFilters, 200);
+            filter.addEventListener('change', debouncedFilter);
         }
     });
 }
 
+function debounceFilter(func, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
 function applyAlertFilters() {
-    const distanceFilter = document.getElementById('distanceFilter')?.value || 'all';
-    const disasterFilter = document.getElementById('alertDisasterFilter')?.value || 'all';
-    const severityFilter = document.getElementById('alertSeverityFilter')?.value || 'all';
+    const distanceFilter = alertsCache.filters.distance?.value || 'all';
+    const disasterFilter = alertsCache.filters.disaster?.value || 'all';
+    const severityFilter = alertsCache.filters.severity?.value || 'all';
 
     currentAlerts = alertsData.filter(alert => {
         // Distance filter

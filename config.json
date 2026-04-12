@@ -1,0 +1,43 @@
+{
+  "adminEmails": [
+    "admin@oceanguard.gov.in",
+    "admin@example.com",
+    "ompatil@hazardwatch.com"
+  ],
+  "testUsers": {
+    "admins": [
+      {
+        "email": "ompatil@hazardwatch.com",
+        "password": "Om1@121204",
+        "name": "Admin User",
+        "role": "admin"
+      },
+      {
+        "email": "admin@example.com",
+        "password": "admin123",
+        "name": "Admin Officer",
+        "role": "admin"
+      }
+    ],
+    "regularUsers": [
+      {
+        "email": "user@example.com",
+        "password": "user123",
+        "name": "Regular User",
+        "role": "user"
+      },
+      {
+        "email": "john@example.com",
+        "password": "john123",
+        "name": "John Doe",
+        "role": "user"
+      },
+      {
+        "email": "sarah@example.com",
+        "password": "sarah123",
+        "name": "Sarah Smith",
+        "role": "user"
+      }
+    ]
+  }
+}

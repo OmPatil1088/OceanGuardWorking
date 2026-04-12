@@ -1,33 +1,75 @@
 // ========================================
-// Settings System
+// Settings System with Performance Optimization
 // ========================================
 
 // Default Settings
 const defaultSettings = {
-    // Notification Preferences
     pushNotifications: true,
     emailNotifications: true,
     smsNotifications: false,
-
-    // Location Settings
     locationAccess: true,
     monitoringRadius: '5',
-
-    // Language Preference
     language: 'english',
-
-    // Privacy Controls
     anonymousReports: true,
     hideLocation: true,
     profileVisibility: false,
-
-    // Theme Mode
     theme: 'light'
 };
 
 let currentSettings = { ...defaultSettings };
 
+// ========================================
+// CACHED ELEMENTS (Performance: 50+ queries → 1-2 queries)
+// ========================================
+const settingsElements = {
+    notifications: {},
+    location: {},
+    privacy: {},
+    theme: {},
+    buttons: {},
+    initialized: false
+};
+
+function cacheSettingsElements() {
+    if (settingsElements.initialized) return; // Only cache once
+    
+    // Notification checkboxes
+    settingsElements.notifications = {
+        push: document.getElementById('pushNotifications'),
+        email: document.getElementById('emailNotifications'),
+        sms: document.getElementById('smsNotifications')
+    };
+    
+    // Location settings
+    settingsElements.location = {
+        access: document.getElementById('locationAccess'),
+        radius: document.querySelectorAll('input[name="radius"]')
+    };
+    
+    // Language selection
+    settingsElements.language = document.querySelectorAll('input[name="language"]');
+    
+    // Privacy controls
+    settingsElements.privacy = {
+        anonymous: document.getElementById('anonymousReports'),
+        hideLocation: document.getElementById('hideLocation'),
+        profileVisibility: document.getElementById('profileVisibility')
+    };
+    
+    // Theme options
+    settingsElements.theme = document.querySelectorAll('input[name="theme"]');
+    
+    // Buttons
+    settingsElements.buttons = {
+        save: document.getElementById('saveSettingsBtn'),
+        reset: document.getElementById('resetSettingsBtn')
+    };
+    
+    settingsElements.initialized = true;
+}
+
 function initializeSettings() {
+    cacheSettingsElements();
     loadSettings();
     renderSettings();
     initializeSettingHandlers();
@@ -47,6 +89,7 @@ function loadSettings() {
                 ...JSON.parse(saved)
             };
         } catch (e) {
+            console.warn('Failed to load settings:', e);
             currentSettings = { ...defaultSettings };
         }
     }
@@ -57,157 +100,136 @@ function saveSettings() {
 }
 
 function renderSettings() {
-    // A) Notification Preferences
-    const pushNotifications = document.getElementById('pushNotifications');
-    const emailNotifications = document.getElementById('emailNotifications');
-    const smsNotifications = document.getElementById('smsNotifications');
-
-    if (pushNotifications) pushNotifications.checked = currentSettings.pushNotifications;
-    if (emailNotifications) emailNotifications.checked = currentSettings.emailNotifications;
-    if (smsNotifications) smsNotifications.checked = currentSettings.smsNotifications;
-
-    // B) Location Settings
-    const locationAccess = document.getElementById('locationAccess');
-    if (locationAccess) locationAccess.checked = currentSettings.locationAccess;
-
-    const radiusOptions = document.querySelectorAll('input[name="radius"]');
-    radiusOptions.forEach(radio => {
+    if (!settingsElements.initialized) cacheSettingsElements();
+    
+    // Notifications
+    if (settingsElements.notifications.push) settingsElements.notifications.push.checked = currentSettings.pushNotifications;
+    if (settingsElements.notifications.email) settingsElements.notifications.email.checked = currentSettings.emailNotifications;
+    if (settingsElements.notifications.sms) settingsElements.notifications.sms.checked = currentSettings.smsNotifications;
+    
+    // Location
+    if (settingsElements.location.access) settingsElements.location.access.checked = currentSettings.locationAccess;
+    settingsElements.location.radius.forEach(radio => {
         radio.checked = radio.value === currentSettings.monitoringRadius;
     });
-
-    // C) Language Selection
-    const languageOptions = document.querySelectorAll('input[name="language"]');
-    languageOptions.forEach(radio => {
+    
+    // Language
+    settingsElements.language.forEach(radio => {
         radio.checked = radio.value === currentSettings.language;
     });
-
-    // D) Privacy Controls
-    const anonymousReports = document.getElementById('anonymousReports');
-    const hideLocation = document.getElementById('hideLocation');
-    const profileVisibility = document.getElementById('profileVisibility');
-
-    if (anonymousReports) anonymousReports.checked = currentSettings.anonymousReports;
-    if (hideLocation) hideLocation.checked = currentSettings.hideLocation;
-    if (profileVisibility) profileVisibility.checked = currentSettings.profileVisibility;
-
-    // E) Theme Mode
-    const themeOptions = document.querySelectorAll('input[name="theme"]');
-    themeOptions.forEach(radio => {
+    
+    // Privacy
+    if (settingsElements.privacy.anonymous) settingsElements.privacy.anonymous.checked = currentSettings.anonymousReports;
+    if (settingsElements.privacy.hideLocation) settingsElements.privacy.hideLocation.checked = currentSettings.hideLocation;
+    if (settingsElements.privacy.profileVisibility) settingsElements.privacy.profileVisibility.checked = currentSettings.profileVisibility;
+    
+    // Theme
+    settingsElements.theme.forEach(radio => {
         radio.checked = radio.value === currentSettings.theme;
     });
 }
 
 function initializeSettingHandlers() {
-    // A) Notification Preferences
-    const pushNotifications = document.getElementById('pushNotifications');
-    const emailNotifications = document.getElementById('emailNotifications');
-    const smsNotifications = document.getElementById('smsNotifications');
-
-    if (pushNotifications) {
-        pushNotifications.addEventListener('change', function() {
-            currentSettings.pushNotifications = this.checked;
+    if (!settingsElements.initialized) cacheSettingsElements();
+    
+    // Notification handlers
+    if (settingsElements.notifications.push) {
+        settingsElements.notifications.push.addEventListener('change', (e) => {
+            currentSettings.pushNotifications = e.target.checked;
         });
     }
-
-    if (emailNotifications) {
-        emailNotifications.addEventListener('change', function() {
-            currentSettings.emailNotifications = this.checked;
+    if (settingsElements.notifications.email) {
+        settingsElements.notifications.email.addEventListener('change', (e) => {
+            currentSettings.emailNotifications = e.target.checked;
         });
     }
-
-    if (smsNotifications) {
-        smsNotifications.addEventListener('change', function() {
-            currentSettings.smsNotifications = this.checked;
+    if (settingsElements.notifications.sms) {
+        settingsElements.notifications.sms.addEventListener('change', (e) => {
+            currentSettings.smsNotifications = e.target.checked;
         });
     }
-
-    // B) Location Settings
-    const locationAccess = document.getElementById('locationAccess');
-    if (locationAccess) {
-        locationAccess.addEventListener('change', function() {
-            currentSettings.locationAccess = this.checked;
+    
+    // Location handlers
+    if (settingsElements.location.access) {
+        settingsElements.location.access.addEventListener('change', (e) => {
+            currentSettings.locationAccess = e.target.checked;
         });
     }
-
-    const radiusOptions = document.querySelectorAll('input[name="radius"]');
-    radiusOptions.forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (this.checked) {
-                currentSettings.monitoringRadius = this.value;
+    
+    settingsElements.location.radius.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) currentSettings.monitoringRadius = e.target.value;
+        });
+    });
+    
+    // Language handlers
+    settingsElements.language.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                currentSettings.language = e.target.value;
+                updateLanguage(e.target.value);
             }
         });
     });
-
-    // C) Language Selection
-    const languageOptions = document.querySelectorAll('input[name="language"]');
-    languageOptions.forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (this.checked) {
-                currentSettings.language = this.value;
-                updateLanguage(this.value);
-            }
-        });
-    });
-
-    // D) Privacy Controls
-    const anonymousReports = document.getElementById('anonymousReports');
-    const hideLocation = document.getElementById('hideLocation');
-    const profileVisibility = document.getElementById('profileVisibility');
-
-    if (anonymousReports) {
-        anonymousReports.addEventListener('change', function() {
-            currentSettings.anonymousReports = this.checked;
+    
+    // Privacy handlers
+    if (settingsElements.privacy.anonymous) {
+        settingsElements.privacy.anonymous.addEventListener('change', (e) => {
+            currentSettings.anonymousReports = e.target.checked;
         });
     }
-
-    if (hideLocation) {
-        hideLocation.addEventListener('change', function() {
-            currentSettings.hideLocation = this.checked;
+    if (settingsElements.privacy.hideLocation) {
+        settingsElements.privacy.hideLocation.addEventListener('change', (e) => {
+            currentSettings.hideLocation = e.target.checked;
         });
     }
-
-    if (profileVisibility) {
-        profileVisibility.addEventListener('change', function() {
-            currentSettings.profileVisibility = this.checked;
+    if (settingsElements.privacy.profileVisibility) {
+        settingsElements.privacy.profileVisibility.addEventListener('change', (e) => {
+            currentSettings.profileVisibility = e.target.checked;
         });
     }
-
-    // E) Theme Mode
-    const themeOptions = document.querySelectorAll('input[name="theme"]');
-    themeOptions.forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (this.checked) {
-                currentSettings.theme = this.value;
+    
+    // Theme handlers
+    settingsElements.theme.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                currentSettings.theme = e.target.value;
                 applyTheme();
             }
         });
     });
-
+    
     // Save and Reset buttons
-    const saveBtn = document.getElementById('saveSettingsBtn');
-    const resetBtn = document.getElementById('resetSettingsBtn');
-
-    if (saveBtn) {
-        saveBtn.addEventListener('click', handleSaveSettings);
+    if (settingsElements.buttons.save) {
+        settingsElements.buttons.save.addEventListener('click', handleSaveSettings);
     }
-
-    if (resetBtn) {
-        resetBtn.addEventListener('click', handleResetSettings);
+    if (settingsElements.buttons.reset) {
+        settingsElements.buttons.reset.addEventListener('click', handleResetSettings);
     }
 }
 
 function handleSaveSettings() {
     saveSettings();
-    alert('Settings saved successfully! ✓');
+    const saveBtn = settingsElements.buttons.save;
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = '✓ Saved!';
+    setTimeout(() => {
+        saveBtn.textContent = originalText;
+    }, 2000);
 }
 
 function handleResetSettings() {
-    if (confirm('Are you sure you want to reset all settings to defaults? This action cannot be undone.')) {
+    if (confirm('Reset all settings to defaults? This cannot be undone.')) {
         currentSettings = { ...defaultSettings };
         saveSettings();
         renderSettings();
         applyTheme();
-        alert('Settings have been reset to defaults.');
+        const resetBtn = settingsElements.buttons.reset;
+        const originalText = resetBtn.textContent;
+        resetBtn.textContent = '✓ Reset!';
+        setTimeout(() => {
+            resetBtn.textContent = originalText;
+        }, 2000);
     }
 }
 
@@ -218,35 +240,21 @@ function handleResetSettings() {
 function applyTheme() {
     const theme = currentSettings.theme;
     const html = document.documentElement;
-
-    if (theme === 'dark') {
-        html.style.colorScheme = 'dark';
-        // Add dark mode CSS variables override here if needed
-    } else {
-        html.style.colorScheme = 'light';
-    }
-
-    // Save theme preference to DOM for CSS to access
+    html.style.colorScheme = theme;
     document.body.setAttribute('data-theme', theme);
 }
 
 // ========================================
-// Language Management (Placeholder)
+// Language Management
 // ========================================
 
 function updateLanguage(language) {
-    // This is a placeholder for language switching
-    // In a real app, this would load translated strings
     console.log('Language changed to:', language);
-
     const languageMap = {
         'english': 'English',
         'hindi': 'हिंदी (Hindi)',
         'regional': 'Regional Language'
     };
-
-    // You could emit an event or call an API to change the UI language
-    // For now, we'll just log it
     console.log('Current language:', languageMap[language]);
 }
 

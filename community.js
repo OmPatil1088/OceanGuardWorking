@@ -84,24 +84,94 @@ let selectedIncidentId = null;
 let userVotes = {}; // Track user votes: { incidentId: 'upvote' | 'downvote' | null }
 
 function initializeCommunity() {
+    console.log('=== INITIALIZING COMMUNITY ===');
     loadCommunityData();
     setupCommentListener();
+    console.log('=== COMMUNITY INITIALIZATION COMPLETE ===');
 }
 
 function loadCommunityData() {
-    renderIncidentsFeed(communityIncidents);
+    // Load all incidents: sample + user-reported public incidents
+    const allIncidents = loadAllIncidents();
+    console.log('Loading community data. Total incidents:', allIncidents.length);
+    console.log('All incidents:', allIncidents);
+    renderIncidentsFeed(allIncidents);
     initializeCommunityFilters();
     initializeMediaUpload();
 }
 
+/**
+ * Load both sample incidents and user-reported public incidents
+ */
+function loadAllIncidents() {
+    let allIncidents = [...communityIncidents]; // Start with sample incidents
+    console.log('Sample incidents count:', communityIncidents.length);
+    
+    try {
+        // Load stored votes for sample incidents
+        const sampleVotesStored = localStorage.getItem('sampleIncidentVotes');
+        if (sampleVotesStored) {
+            try {
+                const sampleVotes = JSON.parse(sampleVotesStored);
+                // Merge stored votes back into sample incidents
+                allIncidents = allIncidents.map(incident => {
+                    if (sampleVotes[incident.id]) {
+                        return { ...incident, verified: sampleVotes[incident.id].verified, unverified: sampleVotes[incident.id].unverified };
+                    }
+                    return incident;
+                });
+                console.log('Loaded stored sample incident votes');
+            } catch (e) {
+                console.warn('Error parsing sample incident votes:', e);
+            }
+        }
+        
+        // Load user-reported public incidents from localStorage
+        const stored = localStorage.getItem(PUBLIC_INCIDENTS_STORAGE_KEY);
+        if (stored) {
+            const publicIncidents = JSON.parse(stored);
+            console.log('Found stored public incidents:', publicIncidents.length);
+            // Add public incidents (they'll be merged, user reports go first since they're newer)
+            allIncidents = [...publicIncidents, ...allIncidents];
+        }
+    } catch (error) {
+        console.error('Error loading public incidents:', error);
+        // Fall back to sample incidents only
+    }
+    
+    console.log('Final all incidents count:', allIncidents.length);
+    return allIncidents;
+}
+
 function renderIncidentsFeed(incidents) {
     const feed = document.getElementById('incidentsFeed');
+    
+    if (!feed) {
+        console.error('ERROR: incidentsFeed element not found!');
+        return;
+    }
+    
+    console.log('Rendering incidents feed with', incidents.length, 'incidents');
     feed.innerHTML = '';
 
-    incidents.forEach(incident => {
+    if (incidents.length === 0) {
+        console.warn('WARNING: No incidents to render');
+        feed.innerHTML = '<p style="padding: 20px; text-align: center; color: var(--gray);">No incidents found</p>';
+        return;
+    }
+
+    // Use DocumentFragment for batch DOM insertions
+    const fragment = document.createDocumentFragment();
+    
+    incidents.forEach((incident, index) => {
+        console.log(`Creating card for incident ${index + 1}:`, incident.id, incident.type);
         const card = createIncidentCard(incident);
-        feed.appendChild(card);
+        fragment.appendChild(card);
     });
+    
+    // Single DOM operation
+    feed.appendChild(fragment);
+    console.log('Finished rendering all incidents');
 }
 
 function createIncidentCard(incident) {
@@ -132,9 +202,9 @@ function createIncidentCard(incident) {
         </div>
         <div class="incident-description">${incident.description}</div>
         <div class="incident-meta">
-            <span>👍 ${incident.verified} verified</span>
-            <span>⚠️ ${incident.unverified} reports</span>
-            <span>💬 ${incident.comments.length} comments</span>
+            <span>👍 ${incident.verified || 0} verified</span>
+            <span>⚠️ ${incident.unverified || 0} reports</span>
+            <span>💬 ${(incident.comments && incident.comments.length) || 0} comments</span>
         </div>
     `;
 
@@ -247,13 +317,37 @@ function updateComments(incident) {
 }
 
 function voteIncident(incidentId, voteType) {
-    const incident = communityIncidents.find(i => i.id === incidentId);
-    if (!incident) return;
+    // Search in all incidents (both sample and user-reported)
+    let allIncidents = loadAllIncidents();
+    let incident = allIncidents.find(i => i.id === incidentId);
+    
+    if (!incident) {
+        console.error('Incident not found:', incidentId);
+        return;
+    }
+
+    // Check if this is a user-reported incident (isUserReport flag)
+    const isUserReport = incident.isUserReport === true;
 
     // Update vote tracking
     if (userVotes[incidentId] === voteType) {
+        // Toggle off if clicking same vote
         delete userVotes[incidentId];
+        // Revert the vote count
+        if (voteType === 'upvote') {
+            incident.verified = Math.max(0, incident.verified - 1);
+        } else {
+            incident.unverified = Math.max(0, incident.unverified - 1);
+        }
     } else {
+        // First revert any previous vote
+        if (userVotes[incidentId] === 'upvote') {
+            incident.verified = Math.max(0, incident.verified - 1);
+        } else if (userVotes[incidentId] === 'downvote') {
+            incident.unverified = Math.max(0, incident.unverified - 1);
+        }
+        
+        // Apply new vote
         userVotes[incidentId] = voteType;
         if (voteType === 'upvote') {
             incident.verified++;
@@ -262,18 +356,101 @@ function voteIncident(incidentId, voteType) {
         }
     }
 
-    // Refresh the panel
-    updateVerificationPanel(incident);
+    // Persist changes to localStorage if it's a user-reported incident
+    if (isUserReport) {
+        try {
+            let publicIncidents = [];
+            const stored = localStorage.getItem(PUBLIC_INCIDENTS_STORAGE_KEY);
+            if (stored) {
+                publicIncidents = JSON.parse(stored);
+            }
+            
+            // Find and update the incident in public incidents
+            const publicIdx = publicIncidents.findIndex(i => i.id === incidentId);
+            if (publicIdx !== -1) {
+                publicIncidents[publicIdx] = incident;
+                localStorage.setItem(PUBLIC_INCIDENTS_STORAGE_KEY, JSON.stringify(publicIncidents));
+            }
+        } catch (error) {
+            console.error('Error saving vote to localStorage:', error);
+        }
+    } else {
+        // For sample incidents, also store vote in localStorage to persist across sessions
+        try {
+            let sampleIncidentVotes = localStorage.getItem('sampleIncidentVotes') ? JSON.parse(localStorage.getItem('sampleIncidentVotes')) : {};
+            sampleIncidentVotes[incidentId] = incident;
+            localStorage.setItem('sampleIncidentVotes', JSON.stringify(sampleIncidentVotes));
+        } catch (error) {
+            console.error('Error saving sample incident vote:', error);
+        }
+    }
+
+    // Reload and re-render the incident feed to show updated vote counts
+    const updatedIncidents = loadAllIncidents();
+    renderIncidentsFeed(updatedIncidents);
+
+    // Update the verification panel
+    const updatedIncident = updatedIncidents.find(i => i.id === incidentId);
+    if (updatedIncident) {
+        updateVerificationPanel(updatedIncident);
+    }
 }
 
 function reportFalseIncident(incidentId) {
-    const incident = communityIncidents.find(i => i.id === incidentId);
-    if (!incident) return;
+    // Search in all incidents (both sample and user-reported)
+    let allIncidents = loadAllIncidents();
+    let incident = allIncidents.find(i => i.id === incidentId);
+    
+    if (!incident) {
+        console.error('Incident not found:', incidentId);
+        return;
+    }
+
+    const isUserReport = incident.isUserReport === true;
 
     if (confirm(`Report "${incident.type}" incident as false?\n\nThis will notify administrators for review.`)) {
-        alert('Thank you for reporting. Our team will review this incident.');
         incident.unverified++;
-        updateVerificationPanel(incident);
+        
+        // Persist changes to localStorage if it's a user-reported incident
+        if (isUserReport) {
+            try {
+                let publicIncidents = [];
+                const stored = localStorage.getItem(PUBLIC_INCIDENTS_STORAGE_KEY);
+                if (stored) {
+                    publicIncidents = JSON.parse(stored);
+                }
+                
+                // Find and update the incident in public incidents
+                const publicIdx = publicIncidents.findIndex(i => i.id === incidentId);
+                if (publicIdx !== -1) {
+                    publicIncidents[publicIdx] = incident;
+                    localStorage.setItem(PUBLIC_INCIDENTS_STORAGE_KEY, JSON.stringify(publicIncidents));
+                }
+            } catch (error) {
+                console.error('Error saving report to localStorage:', error);
+            }
+        } else {
+            // For sample incidents, also store in localStorage
+            try {
+                let sampleIncidentVotes = localStorage.getItem('sampleIncidentVotes') ? JSON.parse(localStorage.getItem('sampleIncidentVotes')) : {};
+                sampleIncidentVotes[incidentId] = incident;
+                localStorage.setItem('sampleIncidentVotes', JSON.stringify(sampleIncidentVotes));
+            } catch (error) {
+                console.error('Error saving sample incident report:', error);
+            }
+        }
+        
+        // Reload and re-render the incident feed to show updated report counts
+        const updatedIncidents = loadAllIncidents();
+        renderIncidentsFeed(updatedIncidents);
+
+        // Update the verification panel
+        const updatedIncident = updatedIncidents.find(i => i.id === incidentId);
+        if (updatedIncident) {
+            updateVerificationPanel(updatedIncident);
+        }
+
+        alert('Thank you for reporting. Our team will review this incident.');
     }
 }
 
@@ -294,7 +471,7 @@ function applyFilters() {
     const location = document.getElementById('locationFilter').value.toLowerCase();
     const verification = document.getElementById('verificationFilter').value;
 
-    let filtered = communityIncidents;
+    let filtered = loadAllIncidents();  // Use all incidents (sample + user-reported)
 
     if (disasterType !== 'all') {
         filtered = filtered.filter(i => i.type.toLowerCase() === disasterType.toLowerCase());
@@ -325,19 +502,22 @@ function initializeMediaUpload() {
         imageUpload.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file && selectedIncidentId) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const incident = communityIncidents.find(i => i.id === selectedIncidentId);
-                    if (incident) {
+                // Search in all incidents, not just sample ones
+                let allIncidents = loadAllIncidents();
+                const incident = allIncidents.find(i => i.id === selectedIncidentId);
+                
+                if (incident) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
                         incident.images.push({
                             url: event.target.result,
                             timestamp: new Date().toLocaleString()
                         });
                         updateMediaViewer(incident);
                         alert('Image uploaded successfully!');
-                    }
-                };
-                reader.readAsDataURL(file);
+                    };
+                    reader.readAsDataURL(file);
+                }
             } else if (!selectedIncidentId) {
                 alert('Please select an incident first');
             }
@@ -399,7 +579,10 @@ function postComment() {
         return;
     }
 
-    const incident = communityIncidents.find(i => i.id === selectedIncidentId);
+    // Search in all incidents, not just sample ones
+    let allIncidents = loadAllIncidents();
+    const incident = allIncidents.find(i => i.id === selectedIncidentId);
+    
     if (incident) {
         incident.comments.push({
             author: sessionStorage.getItem('username') || 'Anonymous',

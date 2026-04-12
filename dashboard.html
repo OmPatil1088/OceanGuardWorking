@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body class="dashboard-page">
+    <!-- Notifications Container -->
+    <div id="notificationsContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px; pointer-events: none;"></div>
+    
     <div class="dashboard-container">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -92,11 +95,11 @@
             <div class="sidebar-footer">
                 <div class="user-profile" id="profileBtn">
                     <div class="user-avatar">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23667eea'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='white' font-size='40' font-family='Arial'%3EJD%3C/text%3E%3C/svg%3E" alt="User">
+                        <img id="sidebarAvatarImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23667eea'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='white' font-size='40' font-family='Arial'%3EJD%3C/text%3E%3C/svg%3E" alt="User">
                     </div>
                     <div class="user-info">
-                        <div class="user-name">Kunal Gupta</div>
-                        <div class="user-role">Administrator</div>
+                        <div class="user-name" id="sidebarUserName">Kunal Gupta</div>
+                        <div class="user-role" id="sidebarUserRole">Administrator</div>
                     </div>
                 </div>
                 <button class="btn-logout" id="logoutBtn">
@@ -220,7 +223,10 @@
                 <!-- Live Incident Map -->
                 <div class="map-section">
                     <div class="section-header">
-                        <h2>Live Incident Map</h2>
+                        <div>
+                            <h2>Live Incident Map</h2>
+                            <p id="filterInfo" class="filter-info-text">All Incidents</p>
+                        </div>
                         <div class="map-controls">
                             <button class="map-control-btn active" data-filter="all">All</button>
                             <button class="map-control-btn" data-filter="critical">Critical</button>
@@ -256,6 +262,19 @@
                             </svg>
                         </button>
                     </div>
+                    
+                    <!-- Featured Breaking News -->
+                    <div id="featuredNews" class="featured-news" style="display: none;">
+                        <div class="featured-content">
+                            <span class="featured-badge">🔴 BREAKING</span>
+                            <h3 id="featuredTitle">Latest breaking news update</h3>
+                            <p id="featuredTime" class="featured-time">Just now</p>
+                            <a id="featuredLink" href="#" target="_blank" class="featured-read-more">
+                                Read full story →
+                            </a>
+                        </div>
+                    </div>
+                    
                     <div class="news-list" id="newsList">
                         <!-- News items will be added here by JS -->
                     </div>
@@ -371,11 +390,13 @@
                     <div class="services-container">
                         <div class="section-header">
                             <h2>Nearby Emergency Services</h2>
-                            <button class="btn-refresh" id="refreshLocationBtn" title="Refresh location">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"/>
-                                </svg>
-                            </button>
+                            <div class="header-actions">
+                                <button class="btn-refresh" id="refreshLocationBtn" title="Refresh location">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                         <div class="location-status" id="locationStatus">
                             <p style="text-align: center; color: var(--gray); padding: var(--space-md);">📍 Enable location to see nearby services</p>
@@ -502,6 +523,45 @@
                 </div>
             </div>
 
+            <!-- MY REPORTS Section -->
+            <div class="my-reports-section" id="myReportsSection" style="display: none;">
+                <div class="section-header">
+                    <h2>My Reported Cases</h2>
+                    <div class="cases-actions">
+                        <input type="text" placeholder="Search my reports..." class="search-input" id="searchMyReports">
+                        <select class="filter-select" id="filterMyReportsStatus">
+                            <option value="all">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="my-reports-stats">
+                    <div class="stat-card-compact">
+                        <div class="stat-label">Total Reports</div>
+                        <div class="stat-value-small" id="myTotalReports">0</div>
+                    </div>
+                    <div class="stat-card-compact">
+                        <div class="stat-label">Active Reports</div>
+                        <div class="stat-value-small" id="myActiveReports">0</div>
+                    </div>
+                    <div class="stat-card-compact">
+                        <div class="stat-label">Resolved Reports</div>
+                        <div class="stat-value-small" id="myResolvedReports">0</div>
+                    </div>
+                </div>
+                <div class="my-reports-container">
+                    <div id="myReportsListEmpty" class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.3;">
+                            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2-2 2 2 0 0 0-2 2m0 0a2 2 0 0 1 2-2 2 2 0 0 1 2 2"/>
+                        </svg>
+                        <p>You haven't reported any cases yet.</p>
+                        <p class="secondary-text">Click "Report Case" to share information about an emergency.</p>
+                    </div>
+                    <div id="myReportsList" class="reports-list"></div>
+                </div>
+            </div>
+
             <!-- SETTINGS Section -->
             <div class="settings-section" id="settingsSection" style="display: none;">
                 <div class="settings-container">
@@ -618,6 +678,60 @@
                     </div>
                 </div>
             </div>
+
+            <!-- AI ASSISTANT Section -->
+            <div class="ai-assistant-section" id="aiAssistantSection" style="display: none;">
+                <div class="ai-assistant-container">
+                    <div class="ai-header">
+                        <h2>🤖 AI Emergency Assistant</h2>
+                        <p class="subtitle">Get AI-powered advice and information about emergency management</p>
+                    </div>
+
+                    <div class="chat-interface">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="chat-message ai-message">
+                                <div class="message-content">
+                                    <p>👋 Hello! I'm your AI Emergency Assistant. I can help you with:</p>
+                                    <ul style="margin-top: 10px; margin-left: 20px;">
+                                        <li>Emergency preparedness tips</li>
+                                        <li>Disaster management guidance</li>
+                                        <li>First aid advice</li>
+                                        <li>Safety information</li>
+                                        <li>How to report emergencies</li>
+                                    </ul>
+                                    <p style="margin-top: 10px;">How can I assist you today?</p>
+                                </div>
+                                <span class="message-time">Just now</span>
+                            </div>
+                        </div>
+
+                        <div class="chat-input-area">
+                            <div class="quick-suggestions" id="quickSuggestions">
+                                <button class="suggestion-btn" onclick="sendMessage('How do I prepare for a flood?')">Flood Preparedness</button>
+                                <button class="suggestion-btn" onclick="sendMessage('What should I do in an earthquake?')">Earthquake Safety</button>
+                                <button class="suggestion-btn" onclick="sendMessage('How to apply first aid?')">First Aid Basics</button>
+                                <button class="suggestion-btn" onclick="sendMessage('Tell me about evacuation procedures')">Evacuation Procedures</button>
+                            </div>
+
+                            <div class="input-wrapper">
+                                <input 
+                                    type="text" 
+                                    id="messageInput" 
+                                    class="chat-input" 
+                                    placeholder="Ask me anything about emergency management..."
+                                    autocomplete="off"
+                                >
+                                <button class="send-btn" onclick="sendMessage()">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="22" y1="2" x2="11" y2="13"/>
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
     
@@ -661,7 +775,15 @@
                 
                 <div class="form-group">
                     <label for="caseLocation">Location</label>
-                    <input type="text" id="caseLocation" placeholder="Enter location or address" required>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="caseLocation" placeholder="Enter location or address" required style="flex: 1;">
+                        <button type="button" id="fetchLocationBtn" class="btn-icon" title="Auto-fetch current location" style="width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -700,37 +822,74 @@
                     </svg>
                 </button>
             </div>
-            <div class="profile-content">
+            
+            <!-- View Profile -->
+            <div id="profileView" class="profile-content">
                 <div class="profile-avatar-large">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='https://in.pinterest.com/pin/1074530792349061654/' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23667eea'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='white' font-size='40' font-family='Arial'%3EJD%3C/text%3E%3C/svg%3E" alt="User">
+                    <img id="profileAvatarImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23667eea'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='white' font-size='40' font-family='Arial'%3EJD%3C/text%3E%3C/svg%3E" alt="User">
                 </div>
                 <div class="profile-info-grid">
                     <div class="profile-field">
                         <label>Full Name</label>
-                        <div class="profile-value">Kunal Gupta</div>
+                        <div class="profile-value" id="profileName">Kunal Gupta</div>
                     </div>
                     <div class="profile-field">
                         <label>Email</label>
-                        <div class="profile-value"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="91fbfef9ffbff5fef4d1f5f8e2f0e2e5f4e3e6f0e5f2f9bff2fefc">[email&#160;protected]</a></div>
+                        <div class="profile-value" id="profileEmail">example@email.com</div>
                     </div>
                     <div class="profile-field">
                         <label>Role</label>
-                        <div class="profile-value">Administrator</div>
+                        <div class="profile-value" id="profileRole">Administrator</div>
                     </div>
                     <div class="profile-field">
                         <label>Department</label>
-                        <div class="profile-value">Emergency Response</div>
+                        <div class="profile-value" id="profileDept">Emergency Response</div>
                     </div>
                     <div class="profile-field">
                         <label>Phone</label>
-                        <div class="profile-value">+91 8282 8282 82</div>
+                        <div class="profile-value" id="profilePhone">+91 8282 8282 82</div>
                     </div>
                     <div class="profile-field">
                         <label>Location</label>
-                        <div class="profile-value">Kharghar, MU</div>
+                        <div class="profile-value" id="profileLocation">Kharghar, MU</div>
                     </div>
                 </div>
-                <button class="btn-primary btn-full">Edit Profile</button>
+                <button class="btn-primary btn-full" id="btnEditProfile">Edit Profile</button>
+            </div>
+            
+            <!-- Edit Profile Form -->
+            <div id="profileEdit" class="profile-edit" style="display: none;">
+                <form id="editProfileForm" class="profile-form">
+                    <div class="form-group-profile">
+                        <label for="editName">Full Name *</label>
+                        <input type="text" id="editName" required placeholder="Enter your full name">
+                    </div>
+                    
+                    <div class="form-group-profile">
+                        <label for="editPhone">Phone Number *</label>
+                        <input type="tel" id="editPhone" required placeholder="+91 9876 5432 10">
+                    </div>
+                    
+                    <div class="form-group-profile">
+                        <label for="editDept">Department *</label>
+                        <input type="text" id="editDept" required placeholder="e.g., Emergency Response">
+                    </div>
+                    
+                    <div class="form-group-profile">
+                        <label for="editLocation">Location *</label>
+                        <input type="text" id="editLocation" required placeholder="e.g., City, State">
+                    </div>
+                    
+                    <div class="form-group-profile">
+                        <label for="editBio">Bio</label>
+                        <textarea id="editBio" placeholder="Tell us about yourself..." rows="3"></textarea>
+                    </div>
+                    
+                    <div class="profile-form-actions">
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                        <button type="button" class="btn-secondary" id="btnCancelEdit">Cancel</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
