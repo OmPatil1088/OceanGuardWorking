@@ -321,7 +321,10 @@ let casesInitialized = false;
 let lastPreciseLocationLat = null;
 let lastPreciseLocationLng = null;
 
-const API_BASE = 'http://localhost:5000';
+// Production backend URL - set to empty string to use fallback sample data
+// For local development with backend: use 'http://localhost:5000'
+// For production: use your deployed backend URL or '' for fallback
+const API_BASE = ''; // Disabled for Vercel - uses sample data fallback
 
 // API Caching & Rate Limiting
 const API_CACHE = {
@@ -967,40 +970,55 @@ async function loadNews() {
         }
     }
 
-    // Show sample news immediately (don't block UI)
-    const sampleArticles = loadSampleNews();
+    // Fetch from real GNews API
+    const API_TOKEN = '659d783d93126a02c93e3fdca350a350';
+    const API_URL = `https://gnews.io/api/v4/search?q=disaster%20OR%20flood%20OR%20cyclone%20OR%20earthquake%20OR%20emergency&lang=en&country=in&max=10&sortby=publishedAt&token=${API_TOKEN}`;
     
-    // Try to update from GNews API in background (don't block UI)
-    console.log('🔄 Updating news from GNews API in background...');
-    
-    const API_URL = "https://gnews.io/api/v4/search?q=disaster%20OR%20flood%20OR%20cyclone%20OR%20earthquake&lang=en&country=in&max=6&sortby=publishedAt&token=c8dd2207a7a034c7b3814eca64c4a7d1";
-
-    fetch(API_URL, { signal: AbortSignal.timeout(3000) })
-        .then(response => {
-            if (!response.ok) {
-                if (response.status === 429) {
-                    console.warn('⚠️ [GNews] Rate limit reached. Next update in 24 hours.');
-                } else {
-                    console.warn(`⚠️ [GNews] API error: ${response.status}`);
-                }
-                return null;
+    try {
+        console.log('🔄 Fetching latest news from GNews API...');
+        
+        const response = await fetch(API_URL, { 
+            signal: AbortSignal.timeout(5000),
+            headers: {
+                'Accept': 'application/json'
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data && data.articles && data.articles.length > 0) {
-                console.log(`✅ Updated ${data.articles.length} news articles from API`);
-                saveToCache('news', {
-                    articles: data.articles,
-                    timestamp: now
-                });
-                // Update UI with fresh news
-                renderNewsList(data.articles);
-            }
-        })
-        .catch(error => {
-            console.warn('⚠️ [GNews] Failed to fetch live news:', error.message);
         });
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.warn('⚠️ [GNews] Authentication failed - Invalid API token');
+            } else if (response.status === 429) {
+                console.warn('⚠️ [GNews] Rate limit reached - Try again shortly');
+            } else {
+                console.warn(`⚠️ [GNews] API error: ${response.status} ${response.statusText}`);
+            }
+            throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data && data.articles && data.articles.length > 0) {
+            console.log(`✅ Loaded ${data.articles.length} articles from GNews API`);
+            
+            // Cache the fresh news
+            saveToCache('news', {
+                articles: data.articles,
+                timestamp: now
+            });
+            
+            renderNewsList(data.articles);
+        } else {
+            console.warn('⚠️ [GNews] No articles returned - using sample data');
+            renderNewsList(loadSampleNews());
+        }
+        
+    } catch (error) {
+        console.warn(`⚠️ [GNews] Failed to fetch live news: ${error.message}`);
+        console.log('📰 Falling back to sample news data');
+        
+        // Fallback to sample news
+        renderNewsList(loadSampleNews());
+    }
     
     markEnd('loadNews');
 }
