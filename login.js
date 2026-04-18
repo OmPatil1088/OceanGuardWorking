@@ -332,7 +332,7 @@ function handleEmergencyGuestAccess(e) {
     sessionStorage.setItem('username', 'guest');
     sessionStorage.setItem('userRole', 'guest');
     sessionStorage.setItem('isGuest', 'true');
-    window.location.href = 'emergency-resources.html';
+    window.location.href = 'dashboard.html';
 }
 
 function getErrorMessage(code) {
