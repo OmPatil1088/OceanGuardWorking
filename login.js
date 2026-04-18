@@ -281,7 +281,7 @@ async function handleLoginSubmit(e) {
 
 async function authenticateUser(email, password) {
     try {
-        const response = await fetch('/api/login', {
+        const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -520,7 +520,7 @@ async function handleSignupSubmit(e) {
 
 async function registerWithBackend(email, password) {
     try {
-        const response = await fetch('/api/register', {
+        const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

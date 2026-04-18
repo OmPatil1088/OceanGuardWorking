@@ -112,8 +112,11 @@ app.get('/health', (req, res) => {
 // API ROUTES
 // ========================================
 
+// Import auth router
+const authRouter = require('./routes/auth');
+
 // Authentication routes
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth', authRouter);
 
 // User management routes
 app.use('/api/users', require('./routes/users'));
