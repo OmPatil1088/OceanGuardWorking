@@ -125,14 +125,16 @@ function cacheLoginElements() {
 
 document.addEventListener('DOMContentLoaded', function () {
     cacheLoginElements();
+
+    // Setup emergency guest access button (always available, no login required)
+    if (loginCache.emergencyGuestBtn) {
+        loginCache.emergencyGuestBtn.addEventListener('click', handleEmergencyGuestAccess);
+    }
+
     if (!loginCache.form) return;
 
     // Handle login form submission
     loginCache.form.addEventListener('submit', handleLoginSubmit);
-
-    if (loginCache.emergencyGuestBtn) {
-        loginCache.emergencyGuestBtn.addEventListener('click', handleEmergencyGuestAccess);
-    }
 
     // Check if user is remembered
     const rememberedUser = localStorage.getItem('rememberedUser');
@@ -323,7 +325,9 @@ function setAuthServiceDegraded(isDegraded) {
     loginCache.authStatusBanner.textContent = 'Secure staff sign-in is temporarily unavailable. Emergency guest access is active for urgent incidents.';
 }
 
-function handleEmergencyGuestAccess() {
+function handleEmergencyGuestAccess(e) {
+    if (e) e.preventDefault();
+    
     sessionStorage.setItem('isLoggedIn', 'false');
     sessionStorage.setItem('username', 'guest');
     sessionStorage.setItem('userRole', 'guest');
