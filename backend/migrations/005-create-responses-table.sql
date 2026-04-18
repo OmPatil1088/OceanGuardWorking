@@ -57,10 +57,10 @@ CREATE TABLE IF NOT EXISTS responses (
 );
 
 -- Create indexes
-CREATE INDEX idx_responses_uuid ON responses(uuid);
-CREATE INDEX idx_responses_incident_id ON responses(incident_id);
-CREATE INDEX idx_responses_status ON responses(status);
-CREATE INDEX idx_responses_assigned_to ON responses(assigned_to);
-CREATE INDEX idx_responses_response_type ON responses(response_type);
-CREATE INDEX idx_responses_assigned_at ON responses(assigned_at);
-CREATE INDEX idx_responses_created_at ON responses(created_at);
+CREATE INDEX IF NOT EXISTS idx_responses_uuid ON responses(uuid);
+CREATE INDEX IF NOT EXISTS idx_responses_incident_id ON responses(incident_id);
+CREATE INDEX IF NOT EXISTS idx_responses_status ON responses(status);
+CREATE INDEX IF NOT EXISTS idx_responses_assigned_to ON responses(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_responses_response_type ON responses(response_type);
+CREATE INDEX IF NOT EXISTS idx_responses_assigned_at ON responses(assigned_at);
+CREATE INDEX IF NOT EXISTS idx_responses_created_at ON responses(created_at);

@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS system_health (
   checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_system_health_checked_at ON system_health(checked_at);
+CREATE INDEX IF NOT EXISTS idx_system_health_checked_at ON system_health(checked_at);
 
 CREATE TABLE IF NOT EXISTS feature_flags (
   id SERIAL PRIMARY KEY,
@@ -83,8 +83,8 @@ CREATE TABLE IF NOT EXISTS feature_flags (
 );
 
 -- Create indexes
-CREATE INDEX idx_system_config_config_key ON system_config(config_key);
-CREATE INDEX idx_system_config_is_active ON system_config(is_active);
-CREATE INDEX idx_health_checked_at ON system_health(checked_at);
-CREATE INDEX idx_feature_flags_feature_name ON feature_flags(feature_name);
-CREATE INDEX idx_feature_flags_is_enabled ON feature_flags(is_enabled);
+CREATE INDEX IF NOT EXISTS idx_system_config_config_key ON system_config(config_key);
+CREATE INDEX IF NOT EXISTS idx_system_config_is_active ON system_config(is_active);
+CREATE INDEX IF NOT EXISTS idx_health_checked_at ON system_health(checked_at);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_feature_name ON feature_flags(feature_name);
+CREATE INDEX IF NOT EXISTS idx_feature_flags_is_enabled ON feature_flags(is_enabled);

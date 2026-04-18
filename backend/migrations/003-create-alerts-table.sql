@@ -67,12 +67,12 @@ CREATE TABLE IF NOT EXISTS alerts (
 );
 
 -- Create indexes
-CREATE INDEX idx_alerts_uuid ON alerts(uuid);
-CREATE INDEX idx_alerts_status ON alerts(status);
-CREATE INDEX idx_alerts_severity ON alerts(severity);
-CREATE INDEX idx_alerts_alert_type ON alerts(alert_type);
-CREATE INDEX idx_alerts_incident_id ON alerts(incident_id);
-CREATE INDEX idx_alerts_district_id ON alerts(district_id);
-CREATE INDEX idx_alerts_issued_by ON alerts(issued_by);
-CREATE INDEX idx_alerts_created_at ON alerts(created_at);
-CREATE INDEX idx_alerts_scheduled_send_at ON alerts(scheduled_send_at);
+CREATE INDEX IF NOT EXISTS idx_alerts_uuid ON alerts(uuid);
+CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status);
+CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_alerts_alert_type ON alerts(alert_type);
+CREATE INDEX IF NOT EXISTS idx_alerts_incident_id ON alerts(incident_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_district_id ON alerts(district_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_issued_by ON alerts(issued_by);
+CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at);
+CREATE INDEX IF NOT EXISTS idx_alerts_scheduled_send_at ON alerts(scheduled_send_at);

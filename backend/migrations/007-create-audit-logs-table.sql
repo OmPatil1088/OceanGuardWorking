@@ -47,10 +47,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- Create indexes
-CREATE INDEX idx_audit_logs_uuid ON audit_logs(uuid);
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_entity_type ON audit_logs(entity_type);
-CREATE INDEX idx_audit_logs_entity_id ON audit_logs(entity_id);
-CREATE INDEX idx_audit_logs_performed_by ON audit_logs(performed_by);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
-CREATE INDEX idx_audit_logs_created_at_performed_by ON audit_logs(created_at, performed_by);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_uuid ON audit_logs(uuid);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_type ON audit_logs(entity_type);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity_id ON audit_logs(entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_performed_by ON audit_logs(performed_by);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at_performed_by ON audit_logs(created_at, performed_by);

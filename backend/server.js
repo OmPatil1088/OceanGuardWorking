@@ -81,6 +81,20 @@ app.use('/api/auth/login', rateLimiter.createLimiter(5, 15 * 60 * 1000)); // 5 a
 app.use('/api/auth/register', rateLimiter.createLimiter(3, 60 * 60 * 1000)); // 3 attempts per hour
 
 // ========================================
+// STATIC FILES (Frontend)
+// ========================================
+
+// Serve frontend files from parent directory
+const path = require('path');
+const frontendPath = path.join(__dirname, '../');
+app.use(express.static(frontendPath));
+
+// Serve index.html for SPA routing
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+// ========================================
 // HEALTH CHECK ENDPOINT
 // ========================================
 

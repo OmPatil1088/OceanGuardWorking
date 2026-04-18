@@ -42,10 +42,10 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Create indexes for performance
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_uuid ON users(uuid);
-CREATE INDEX idx_users_district_id ON users(district_id);
-CREATE INDEX idx_users_state_id ON users(state_id);
-CREATE INDEX idx_users_is_active ON users(is_active);
-CREATE INDEX idx_users_created_at ON users(created_at);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_uuid ON users(uuid);
+CREATE INDEX IF NOT EXISTS idx_users_district_id ON users(district_id);
+CREATE INDEX IF NOT EXISTS idx_users_state_id ON users(state_id);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);

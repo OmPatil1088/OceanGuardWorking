@@ -85,8 +85,8 @@ CREATE TABLE IF NOT EXISTS villages (
 );
 
 -- Create indexes for performance
-CREATE INDEX idx_districts_state_id ON districts(state_id);
-CREATE INDEX idx_districts_is_active ON districts(is_active);
-CREATE INDEX idx_taluks_district_id ON taluks(district_id);
-CREATE INDEX idx_villages_taluk_id ON villages(taluk_id);
-CREATE INDEX idx_villages_district_id ON villages(district_id);
+CREATE INDEX IF NOT EXISTS idx_districts_state_id ON districts(state_id);
+CREATE INDEX IF NOT EXISTS idx_districts_is_active ON districts(is_active);
+CREATE INDEX IF NOT EXISTS idx_taluks_district_id ON taluks(district_id);
+CREATE INDEX IF NOT EXISTS idx_villages_taluk_id ON villages(taluk_id);
+CREATE INDEX IF NOT EXISTS idx_villages_district_id ON villages(district_id);

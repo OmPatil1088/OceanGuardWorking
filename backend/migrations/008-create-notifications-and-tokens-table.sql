@@ -74,14 +74,14 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_notifications_uuid ON notification_logs(uuid);
-CREATE INDEX idx_notifications_user_id ON notification_logs(user_id);
-CREATE INDEX idx_notifications_alert_id ON notification_logs(alert_id);
-CREATE INDEX idx_notifications_status ON notification_logs(status);
-CREATE INDEX idx_notifications_created_at ON notification_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_uuid ON notification_logs(uuid);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notification_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_alert_id ON notification_logs(alert_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notification_logs(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notification_logs(created_at);
 
-CREATE INDEX idx_tokens_uuid ON auth_tokens(uuid);
-CREATE INDEX idx_tokens_user_id ON auth_tokens(user_id);
-CREATE INDEX idx_tokens_token_type ON auth_tokens(token_type);
-CREATE INDEX idx_tokens_expires_at ON auth_tokens(expires_at);
-CREATE INDEX idx_tokens_is_valid ON auth_tokens(is_valid);
+CREATE INDEX IF NOT EXISTS idx_tokens_uuid ON auth_tokens(uuid);
+CREATE INDEX IF NOT EXISTS idx_tokens_user_id ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_tokens_token_type ON auth_tokens(token_type);
+CREATE INDEX IF NOT EXISTS idx_tokens_expires_at ON auth_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_tokens_is_valid ON auth_tokens(is_valid);

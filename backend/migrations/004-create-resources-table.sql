@@ -59,11 +59,11 @@ CREATE TABLE IF NOT EXISTS resources (
 );
 
 -- Create indexes
-CREATE INDEX idx_resources_uuid ON resources(uuid);
-CREATE INDEX idx_resources_resource_type ON resources(resource_type);
-CREATE INDEX idx_resources_status ON resources(status);
-CREATE INDEX idx_resources_district_id ON resources(district_id);
-CREATE INDEX idx_resources_state_id ON resources(state_id);
-CREATE INDEX idx_resources_owned_by ON resources(owned_by);
-CREATE INDEX idx_resources_created_at ON resources(created_at);
-CREATE INDEX idx_resources_available_from ON resources(available_from);
+CREATE INDEX IF NOT EXISTS idx_resources_uuid ON resources(uuid);
+CREATE INDEX IF NOT EXISTS idx_resources_resource_type ON resources(resource_type);
+CREATE INDEX IF NOT EXISTS idx_resources_status ON resources(status);
+CREATE INDEX IF NOT EXISTS idx_resources_district_id ON resources(district_id);
+CREATE INDEX IF NOT EXISTS idx_resources_state_id ON resources(state_id);
+CREATE INDEX IF NOT EXISTS idx_resources_owned_by ON resources(owned_by);
+CREATE INDEX IF NOT EXISTS idx_resources_created_at ON resources(created_at);
+CREATE INDEX IF NOT EXISTS idx_resources_available_from ON resources(available_from);

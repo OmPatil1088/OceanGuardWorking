@@ -64,11 +64,11 @@ CREATE TABLE IF NOT EXISTS incidents (
 );
 
 -- Create indexes
-CREATE INDEX idx_incidents_uuid ON incidents(uuid);
-CREATE INDEX idx_incidents_status ON incidents(status);
-CREATE INDEX idx_incidents_severity ON incidents(severity);
-CREATE INDEX idx_incidents_incident_type ON incidents(incident_type);
-CREATE INDEX idx_incidents_district_id ON incidents(district_id);
-CREATE INDEX idx_incidents_state_id ON incidents(state_id);
-CREATE INDEX idx_incidents_reported_by ON incidents(reported_by);
-CREATE INDEX idx_incidents_created_at ON incidents(created_at);
+CREATE INDEX IF NOT EXISTS idx_incidents_uuid ON incidents(uuid);
+CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);
+CREATE INDEX IF NOT EXISTS idx_incidents_severity ON incidents(severity);
+CREATE INDEX IF NOT EXISTS idx_incidents_incident_type ON incidents(incident_type);
+CREATE INDEX IF NOT EXISTS idx_incidents_district_id ON incidents(district_id);
+CREATE INDEX IF NOT EXISTS idx_incidents_state_id ON incidents(state_id);
+CREATE INDEX IF NOT EXISTS idx_incidents_reported_by ON incidents(reported_by);
+CREATE INDEX IF NOT EXISTS idx_incidents_created_at ON incidents(created_at);

@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS incident_verification (
 );
 
 -- Create indexes
-CREATE INDEX idx_verification_uuid ON incident_verification(uuid);
-CREATE INDEX idx_verification_incident_id ON incident_verification(incident_id);
-CREATE INDEX idx_verification_verified_by ON incident_verification(verified_by);
-CREATE INDEX idx_verification_verdict ON incident_verification(verdict);
-CREATE INDEX idx_verification_created_at ON incident_verification(created_at);
+CREATE INDEX IF NOT EXISTS idx_verification_uuid ON incident_verification(uuid);
+CREATE INDEX IF NOT EXISTS idx_verification_incident_id ON incident_verification(incident_id);
+CREATE INDEX IF NOT EXISTS idx_verification_verified_by ON incident_verification(verified_by);
+CREATE INDEX IF NOT EXISTS idx_verification_verdict ON incident_verification(verdict);
+CREATE INDEX IF NOT EXISTS idx_verification_created_at ON incident_verification(created_at);
