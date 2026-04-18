@@ -1019,7 +1019,16 @@ body {
 <h2>Welcome Back</h2>
 <p class="subtitle">Enter your credentials to access the dashboard</p>
 
+<div id="authStatusBanner" class="auth-status-banner" role="status" aria-live="polite" hidden></div>
+
+<section class="emergency-access" aria-labelledby="emergencyAccessHeading">
+<h3 id="emergencyAccessHeading">Emergency access without login</h3>
+<p>If this is urgent, continue as guest to view resources and report incidents immediately.</p>
+<button type="button" id="emergencyGuestBtn" class="btn-emergency-access">Report Emergency Now</button>
+</section>
+
 <form id="loginForm" class="login-form">
+<div id="loginError" class="form-message form-message-error" role="alert" aria-live="assertive" hidden></div>
 <div class="form-group">
 <label for="username">Username or Email</label>
 <input type="text" id="username" name="username" placeholder="Enter your username" required>
@@ -1044,6 +1053,8 @@ Sign In
 <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
 </svg>
 </button>
+
+<p class="staff-login-note">Staff and administrators should sign in to manage verified response operations.</p>
 
 <div class="divider"><span>or continue with</span></div>
 

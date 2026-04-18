@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCFYKtb_fNUtLA3Yz0Ssx4PoBoKQIQxOM0",
@@ -100,8 +100,15 @@ const loginCache = {
     form: null,
     inputs: [],
     socialBtns: [],
+    loginError: null,
+    authStatusBanner: null,
+    emergencyGuestBtn: null,
+    signupForm: null,
+    signupMessage: null,
     initialized: false
 };
+
+let authServiceDegraded = false;
 
 function cacheLoginElements() {
     if (loginCache.initialized) return;
@@ -109,6 +116,10 @@ function cacheLoginElements() {
     loginCache.form = document.getElementById('loginForm');
     loginCache.inputs = document.querySelectorAll('input');
     loginCache.socialBtns = document.querySelectorAll('.btn-social');
+    loginCache.loginError = document.getElementById('loginError');
+    loginCache.authStatusBanner = document.getElementById('authStatusBanner');
+    loginCache.emergencyGuestBtn = document.getElementById('emergencyGuestBtn');
+    loginCache.signupForm = document.getElementById('signupForm');
     loginCache.initialized = true;
 }
 
@@ -118,6 +129,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Handle login form submission
     loginCache.form.addEventListener('submit', handleLoginSubmit);
+
+    if (loginCache.emergencyGuestBtn) {
+        loginCache.emergencyGuestBtn.addEventListener('click', handleEmergencyGuestAccess);
+    }
 
     // Check if user is remembered
     const rememberedUser = localStorage.getItem('rememberedUser');
@@ -145,6 +160,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const closeSignupModal = document.getElementById('closeSignupModal');
     const backToLogin = document.getElementById('backToLogin');
     const signupForm = document.getElementById('signupForm');
+
+    loginCache.signupMessage = ensureSignupMessageElement();
 
     if (signupLink) {
         signupLink.addEventListener('click', (e) => {
@@ -189,6 +206,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 async function handleLoginSubmit(e) {
     e.preventDefault();
+    clearLoginError();
 
     const email = document.getElementById('username')?.value?.trim();
     const password = document.getElementById('password')?.value;
@@ -210,18 +228,24 @@ async function handleLoginSubmit(e) {
         console.log("🔐 LOGIN ATTEMPT START");
         console.log("✅ Authenticating with backend API...");
 
-        // PRIMARY: Authenticate via backend API, fallback to local users only.
-        let authSuccess = await authenticateUser(email, password);
+        const authResult = await authenticateUser(email, password);
+        const authSuccess = authResult.success;
         
         if (!authSuccess) {
-            console.log(`❌ [AUTH FAILED] Invalid credentials for: ${email}`);
-            showLoginError('Invalid email or password. Please check and try again.');
+            if (authResult.reason === 'invalid') {
+                console.log(`❌ [AUTH FAILED] Invalid credentials for: ${email}`);
+                showLoginError('Invalid email or password. Please check and try again.');
+            } else {
+                console.log(`⚠️ [AUTH DEGRADED] Backend unavailable for: ${email}`);
+                showLoginError('Secure sign-in is temporarily unavailable. Use Emergency Access below for urgent help.');
+            }
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
             return;
         }
 
-        console.log("✅ [AUTH SUCCESS] Authenticated using local config.json");
+        console.log("✅ [AUTH SUCCESS] Authenticated using backend API");
+        setAuthServiceDegraded(false);
 
         // If authentication successful
         if (authSuccess) {
@@ -265,40 +289,46 @@ async function authenticateUser(email, password) {
         });
 
         if (response.ok) {
-            return true;
+            return { success: true, reason: 'ok' };
         }
 
         if (response.status === 401) {
-            return false;
+            return { success: false, reason: 'invalid' };
         }
 
-        console.warn(`⚠️  Backend auth returned ${response.status}, checking local fallback users`);
+        console.warn(`⚠️  Backend auth returned ${response.status}, entering limited mode`);
+        setAuthServiceDegraded(true);
+        return { success: false, reason: 'unavailable' };
     } catch (error) {
-        console.warn('⚠️  Backend auth unavailable, checking local fallback users:', error.message);
+        console.warn('⚠️  Backend auth unavailable, entering limited mode:', error.message);
+        setAuthServiceDegraded(true);
+        return { success: false, reason: 'unavailable' };
     }
-
-    return checkLocalUsers(email, password);
 }
 
-/**
- * Fallback: check localStorage users only.
- */
-function checkLocalUsers(email, password) {
-    try {
-        // Check localStorage for users created on this device
-        const localUsers = getLocalUsers();
-        const localUser = localUsers.find(u => u.email === email && u.password === password);
-        if (localUser) {
-            console.log(`✓ Found user in localStorage: ${email}`);
-            return true;
-        }
+function setAuthServiceDegraded(isDegraded) {
+    authServiceDegraded = isDegraded;
 
-        console.log(`✗ User not found in localStorage fallback: ${email}`);
-        return false;
-    } catch (error) {
-        console.error("⚠️  Error checking local users:", error);
-        return false;
+    if (!loginCache.authStatusBanner) {
+        return;
     }
+
+    if (!isDegraded) {
+        loginCache.authStatusBanner.hidden = true;
+        loginCache.authStatusBanner.textContent = '';
+        return;
+    }
+
+    loginCache.authStatusBanner.hidden = false;
+    loginCache.authStatusBanner.textContent = 'Secure staff sign-in is temporarily unavailable. Emergency guest access is active for urgent incidents.';
+}
+
+function handleEmergencyGuestAccess() {
+    sessionStorage.setItem('isLoggedIn', 'false');
+    sessionStorage.setItem('username', 'guest');
+    sessionStorage.setItem('userRole', 'guest');
+    sessionStorage.setItem('isGuest', 'true');
+    window.location.href = 'emergency-resources.html';
 }
 
 function getErrorMessage(code) {
@@ -326,19 +356,72 @@ function handleInputBlur(e) {
 }
 
 function handleSocialLogin(e) {
-    alert('🔐 Social login will be implemented with OAuth providers');
+    showLoginError('Social login is not enabled for emergency operations. Use staff credentials or emergency guest access.');
 }
 
 function showLoginError(message) {
-    alert(`❌ ${message}`);
+    if (!loginCache.loginError) {
+        return;
+    }
+
+    loginCache.loginError.textContent = message;
+    loginCache.loginError.hidden = false;
+}
+
+function clearLoginError() {
+    if (!loginCache.loginError) {
+        return;
+    }
+
+    loginCache.loginError.hidden = true;
+    loginCache.loginError.textContent = '';
 }
 
 function showSignupSuccess(message) {
-    alert(`✅ ${message}`);
+    setSignupMessage(message, 'success');
 }
 
 function showSignupError(message) {
-    alert(`❌ ${message}`);
+    setSignupMessage(message, 'error');
+}
+
+function ensureSignupMessageElement() {
+    const signupForm = document.getElementById('signupForm');
+    if (!signupForm) return null;
+
+    let message = document.getElementById('signupMessage');
+    if (!message) {
+        message = document.createElement('div');
+        message.id = 'signupMessage';
+        message.className = 'form-message';
+        message.hidden = true;
+        signupForm.prepend(message);
+    }
+
+    return message;
+}
+
+function setSignupMessage(message, type) {
+    if (!loginCache.signupMessage) {
+        loginCache.signupMessage = ensureSignupMessageElement();
+    }
+
+    if (!loginCache.signupMessage) {
+        return;
+    }
+
+    loginCache.signupMessage.className = `form-message ${type === 'success' ? 'form-message-success' : 'form-message-error'}`;
+    loginCache.signupMessage.textContent = message;
+    loginCache.signupMessage.hidden = false;
+}
+
+function clearSignupMessage() {
+    if (!loginCache.signupMessage) {
+        return;
+    }
+
+    loginCache.signupMessage.hidden = true;
+    loginCache.signupMessage.textContent = '';
 }
 
 // ========================================
@@ -347,6 +430,7 @@ function showSignupError(message) {
 
 async function handleSignupSubmit(e) {
     e.preventDefault();
+    clearSignupMessage();
 
     const name = document.getElementById('signupName')?.value?.trim();
     const email = document.getElementById('signupEmail')?.value?.trim();
@@ -393,17 +477,10 @@ async function handleSignupSubmit(e) {
 
         console.log("1️⃣  PRIMARY: Trying Firebase Registration...");
 
-        // Check if user already exists (Firebase or local)
-        const userExists = await checkIfUserExists(email);
-        if (userExists) {
-            showSignupError('This email is already registered. Please login instead.');
-            return;
-        }
-
-        // Try to create user in Firebase
+        // Try to create user in Firebase first.
         let signupSuccess = false;
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await createUserWithEmailAndPassword(auth, email, password);
             console.log("✅ [FIREBASE] User created successfully");
             signupSuccess = true;
 
@@ -411,10 +488,9 @@ async function handleSignupSubmit(e) {
             await saveUserToFirestore(email, name, 'user');
         } catch (error) {
             console.warn("⚠️  [FIREBASE] Registration failed:", error.code);
-            console.log("2️⃣  FALLBACK: Saving to local storage...");
-            
-            // Fallback: Save to localStorage
-            signupSuccess = saveUserLocal(email, password, name);
+            console.log("2️⃣  FALLBACK: Trying backend registration...");
+
+            signupSuccess = await registerWithBackend(email, password);
         }
 
         if (signupSuccess) {
@@ -425,7 +501,7 @@ async function handleSignupSubmit(e) {
             document.getElementById('signupForm').reset();
             document.getElementById('signupModal').style.display = 'none';
             
-            // Clear input fields
+            // Pre-fill login fields for convenience.
             document.getElementById('username').value = email;
             document.getElementById('password').value = password;
         }
@@ -438,32 +514,34 @@ async function handleSignupSubmit(e) {
     }
 }
 
-/**
- * Check if user already exists in Firestore or localStorage
- */
-async function checkIfUserExists(email) {
+async function registerWithBackend(email, password) {
     try {
-        // Check Firestore
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('email', '==', email));
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-            console.log('User exists in Firestore');
+        const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password }),
+            signal: AbortSignal.timeout(7000)
+        });
+
+        if (response.ok) {
+            console.log('✅ [BACKEND] User created successfully');
             return true;
         }
+
+        if (response.status === 409) {
+            showSignupError('This email is already registered. Please login instead.');
+            return false;
+        }
+
+        showSignupError('Account service is temporarily unavailable. Please try again shortly.');
+        return false;
     } catch (error) {
-        console.warn('Could not query Firestore:', error.message);
+        console.warn('⚠️  Backend signup unavailable:', error.message);
+        showSignupError('Account service is temporarily unavailable. Please try again shortly.');
+        return false;
     }
-
-    // Check localStorage
-    const localUsers = getLocalUsers();
-    if (localUsers.find(u => u.email === email)) {
-        console.log('User exists in localStorage');
-        return true;
-    }
-
-    return false;
 }
 
 /**
@@ -482,49 +560,5 @@ async function saveUserToFirestore(email, name, role) {
         console.log('✅ User saved to Firestore');
     } catch (error) {
         console.warn('Could not save to Firestore:', error.message);
-    }
-}
-
-/**
- * Save user to localStorage (fallback)
- */
-function saveUserLocal(email, password, name) {
-    try {
-        const localUsers = getLocalUsers();
-        
-        // Check if user already exists
-        if (localUsers.find(u => u.email === email)) {
-            console.warn('User already exists in localStorage');
-            return false;
-        }
-
-        const newUser = {
-            email: email,
-            password: password,
-            name: name,
-            role: 'user',
-            createdAt: new Date().toISOString()
-        };
-
-        localUsers.push(newUser);
-        localStorage.setItem('oceanGuard_users', JSON.stringify(localUsers));
-        console.log('✅ User saved to localStorage');
-        return true;
-    } catch (error) {
-        console.error('Error saving to localStorage:', error);
-        return false;
-    }
-}
-
-/**
- * Get all users from localStorage
- */
-function getLocalUsers() {
-    try {
-        const usersJSON = localStorage.getItem('oceanGuard_users');
-        return usersJSON ? JSON.parse(usersJSON) : [];
-    } catch (error) {
-        console.warn('Error reading localStorage users:', error);
-        return [];
     }
 }
