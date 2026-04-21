@@ -73,6 +73,7 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
+      - ..:/frontend
       - /app/node_modules
       - logs:/app/logs
       - uploads:/app/uploads

@@ -31,12 +31,16 @@ async function fetchOverpassWithFailover(query, radius) {
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 18000);
 
-                const response = await fetch(endpoint, {
+                // Use backend proxy instead of direct CORS request
+                const response = await fetch('/api/proxy/overpass', {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
+                        "Content-Type": "application/json"
                     },
-                    body: "data=" + encodeURIComponent(query),
+                    body: JSON.stringify({
+                        query: query,
+                        endpoint: endpoint
+                    }),
                     signal: controller.signal
                 });
 

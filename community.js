@@ -83,6 +83,38 @@ const communityIncidents = [
 let selectedIncidentId = null;
 let userVotes = {}; // Track user votes: { incidentId: 'upvote' | 'downvote' | null }
 
+function getMediaFromUserReports(incidentId) {
+    try {
+        if (typeof USER_REPORTS_STORAGE_KEY === 'undefined') return null;
+
+        const storedReports = localStorage.getItem(USER_REPORTS_STORAGE_KEY);
+        if (!storedReports) return null;
+
+        const userReports = JSON.parse(storedReports);
+        const matchedReport = userReports.find(report =>
+            report.id === incidentId || report.caseId === incidentId
+        );
+
+        if (!matchedReport || !matchedReport.mediaProof) return null;
+
+        const mediaProof = matchedReport.mediaProof;
+        const previewUrl = mediaProof.previewUrl || mediaProof.previewDataUrl || mediaProof.dataUrl;
+        const images = previewUrl
+            ? [{
+                url: previewUrl,
+                timestamp: mediaProof.uploadedAt
+                    ? new Date(mediaProof.uploadedAt).toLocaleString()
+                    : new Date().toLocaleString()
+            }]
+            : [];
+
+        return { mediaProof, images };
+    } catch (error) {
+        console.warn('Unable to hydrate media from user reports:', error);
+        return null;
+    }
+}
+
 function initializeCommunity() {
     console.log('=== INITIALIZING COMMUNITY ===');
     loadCommunityData();
@@ -129,8 +161,51 @@ function loadAllIncidents() {
         // Load user-reported public incidents from localStorage
         const stored = localStorage.getItem(PUBLIC_INCIDENTS_STORAGE_KEY);
         if (stored) {
-            const publicIncidents = JSON.parse(stored);
+            let publicIncidents = JSON.parse(stored);
             console.log('Found stored public incidents:', publicIncidents.length);
+
+            // Backward-compatible media migration for older user reports.
+            let migrated = false;
+            publicIncidents = publicIncidents.map((incident) => {
+                const hasImagesArray = Array.isArray(incident.images);
+                const hasImages = hasImagesArray && incident.images.length > 0;
+                const previewUrl = incident.mediaProof?.previewUrl;
+                const mediaFromReports = getMediaFromUserReports(incident.id);
+
+                if (!hasImages && previewUrl) {
+                    migrated = true;
+                    return {
+                        ...incident,
+                        images: [{
+                            url: previewUrl,
+                            timestamp: incident.mediaProof?.uploadedAt
+                                ? new Date(incident.mediaProof.uploadedAt).toLocaleString()
+                                : (incident.timestamp || new Date().toLocaleString())
+                        }]
+                    };
+                }
+
+                if (!hasImages && mediaFromReports) {
+                    migrated = true;
+                    return {
+                        ...incident,
+                        mediaProof: incident.mediaProof || mediaFromReports.mediaProof,
+                        images: mediaFromReports.images
+                    };
+                }
+
+                if (!hasImagesArray) {
+                    migrated = true;
+                    return { ...incident, images: [] };
+                }
+
+                return incident;
+            });
+
+            if (migrated) {
+                localStorage.setItem(PUBLIC_INCIDENTS_STORAGE_KEY, JSON.stringify(publicIncidents));
+            }
+
             // Add public incidents (they'll be merged, user reports go first since they're newer)
             allIncidents = [...publicIncidents, ...allIncidents];
         }
@@ -282,13 +357,30 @@ function updateVerificationPanel(incident) {
 
 function updateMediaViewer(incident) {
     const mediaViewer = document.getElementById('mediaViewer');
+    let images = Array.isArray(incident.images) ? incident.images : [];
+    let mediaProof = incident.mediaProof || null;
 
-    if (incident.images.length > 0) {
-        const img = incident.images[0];
+    if (images.length === 0) {
+        const mediaFromReports = getMediaFromUserReports(incident.id);
+        if (mediaFromReports) {
+            images = mediaFromReports.images;
+            mediaProof = mediaProof || mediaFromReports.mediaProof;
+        }
+    }
+
+    if (images.length > 0) {
+        const img = images[0];
         mediaViewer.innerHTML = `
             <div style="text-align: center;">
                 <img src="${img.url}" alt="Incident image" class="media-image" onclick="openLightbox('${img.url}')">
                 <div class="media-timestamp">📸 ${img.timestamp}</div>
+            </div>
+        `;
+    } else if (mediaProof && mediaProof.fileName) {
+        mediaViewer.innerHTML = `
+            <div style="padding: 1rem; text-align: center; color: var(--gray);">
+                <p style="margin-bottom: 0.5rem;">Media uploaded: ${mediaProof.fileName}</p>
+                <p class="media-timestamp">Uploaded: ${mediaProof.uploadedAt ? new Date(mediaProof.uploadedAt).toLocaleString() : 'N/A'}</p>
             </div>
         `;
     } else {
@@ -509,10 +601,45 @@ function initializeMediaUpload() {
                 if (incident) {
                     const reader = new FileReader();
                     reader.onload = function(event) {
+                        if (!Array.isArray(incident.images)) {
+                            incident.images = [];
+                        }
+
                         incident.images.push({
                             url: event.target.result,
                             timestamp: new Date().toLocaleString()
                         });
+
+                        // Persist uploaded media for user-reported incidents.
+                        if (incident.isUserReport) {
+                            try {
+                                let publicIncidents = [];
+                                const storedPublic = localStorage.getItem(PUBLIC_INCIDENTS_STORAGE_KEY);
+                                if (storedPublic) {
+                                    publicIncidents = JSON.parse(storedPublic);
+                                }
+
+                                const idx = publicIncidents.findIndex(i => i.id === incident.id);
+                                if (idx !== -1) {
+                                    publicIncidents[idx] = incident;
+                                }
+                                localStorage.setItem(PUBLIC_INCIDENTS_STORAGE_KEY, JSON.stringify(publicIncidents));
+                            } catch (persistError) {
+                                console.error('Error saving uploaded media to localStorage:', persistError);
+                            }
+                        } else {
+                            // Persist uploaded media for sample incidents as well.
+                            try {
+                                let sampleIncidentVotes = localStorage.getItem('sampleIncidentVotes')
+                                    ? JSON.parse(localStorage.getItem('sampleIncidentVotes'))
+                                    : {};
+                                sampleIncidentVotes[incident.id] = incident;
+                                localStorage.setItem('sampleIncidentVotes', JSON.stringify(sampleIncidentVotes));
+                            } catch (persistError) {
+                                console.error('Error saving sample incident media to localStorage:', persistError);
+                            }
+                        }
+
                         updateMediaViewer(incident);
                         alert('Image uploaded successfully!');
                     };

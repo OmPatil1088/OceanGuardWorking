@@ -1,11 +1,15 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCFYKtb_fNUtLA3Yz0Ssx4PoBoKQIQxOM0",
-    authDomain: "disaster-ai-240b7.firebaseapp.com",
-    projectId: "disaster-ai-240b7",
+    apiKey: "AIzaSyCiOVDsusUhUSRW-xwMocoG5li39PsfM1Q",
+    authDomain: "ocean-hazard-a459e.firebaseapp.com",
+    projectId: "ocean-hazard-a459e",
+    storageBucket: "ocean-hazard-a459e.firebasestorage.app",
+    messagingSenderId: "555157224442",
+    appId: "1:555157224442:web:c1a5ab694d0c9331fc0243",
+    measurementId: "G-2BKLNKL551"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -281,28 +285,27 @@ async function handleLoginSubmit(e) {
 
 async function authenticateUser(email, password) {
     try {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password }),
-            signal: AbortSignal.timeout(5000)
-        });
-
-        if (response.ok) {
-            return { success: true, reason: 'ok' };
-        }
-
-        if (response.status === 401) {
+        console.log('🔐 Authenticating with Firebase...');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        console.log(`✅ Firebase authentication successful for ${user.email}`);
+        setAuthServiceDegraded(false);
+        
+        return { 
+            success: true, 
+            reason: 'ok',
+            user: user
+        };
+    } catch (error) {
+        console.warn('❌ Firebase authentication failed:', error.code, error.message);
+        
+        // Check if it's a user-not-found or wrong-password error
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             return { success: false, reason: 'invalid' };
         }
-
-        console.warn(`⚠️  Backend auth returned ${response.status}, entering limited mode`);
-        setAuthServiceDegraded(true);
-        return { success: false, reason: 'unavailable' };
-    } catch (error) {
-        console.warn('⚠️  Backend auth unavailable, entering limited mode:', error.message);
+        
+        // For other errors, assume service is degraded
         setAuthServiceDegraded(true);
         return { success: false, reason: 'unavailable' };
     }
@@ -322,7 +325,7 @@ function setAuthServiceDegraded(isDegraded) {
     }
 
     loginCache.authStatusBanner.hidden = false;
-    loginCache.authStatusBanner.textContent = 'Secure staff sign-in is temporarily unavailable. Emergency guest access is active for urgent incidents.';
+    loginCache.authStatusBanner.textContent = '⚠️ Firebase connection issue. Emergency guest access is available for urgent incidents.';
 }
 
 function handleEmergencyGuestAccess(e) {

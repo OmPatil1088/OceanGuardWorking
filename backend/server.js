@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
+const path = require('path');
 const logger = require('./middleware/logger');
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
@@ -21,7 +22,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5000', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
   },
@@ -39,22 +40,45 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'wss:', 'ws:']
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
+      styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://www.gstatic.com", "https://unpkg.com"],
+      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://www.gstatic.com", "https://unpkg.com"],
+      scriptSrcAttr: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+      mediaSrc: ["'self'", 'data:'],
+      connectSrc: [
+        "'self'", 
+        'wss:', 
+        'ws:', 
+        'https://www.gstatic.com',
+        'https://*.firebaseio.com',
+        'https://*.firebaseapp.com',
+        'https://identitytoolkit.googleapis.com',
+        'https://securetoken.googleapis.com',
+        'https://overpass-api.de',
+        'https://overpass.kumi.systems',
+        'https://overpass.openstreetmap.ru',
+        'https://*.tile.openstreetmap.org',
+        'https://nominatim.openstreetmap.org',
+        'https://unpkg.com'
+      ],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      frameSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
     }
   },
-  hsts: {
+  hsts: process.env.NODE_ENV === 'production' ? {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true
-  }
+  } : false
 }));
 
 // CORS Configuration
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5000', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
@@ -85,13 +109,41 @@ app.use('/api/auth/register', rateLimiter.createLimiter(3, 60 * 60 * 1000)); // 
 // ========================================
 
 // Serve frontend files from parent directory
-const path = require('path');
-const frontendPath = path.join(__dirname, '../');
-app.use(express.static(frontendPath));
+// In Docker: mount parent dir at /frontend
+// Locally: use __dirname/../
+let frontendPath;
+try {
+  // Try /frontend first (Docker mount)
+  require('fs').accessSync('/frontend/index.html');
+  frontendPath = '/frontend';
+  logger.info('Using Docker mount path: /frontend');
+} catch {
+  // Fall back to parent directory (local development)
+  frontendPath = path.join(__dirname, '../');
+  logger.info('Using local path: ' + frontendPath);
+}
+
+logger.info(`Frontend path: ${frontendPath}`);
+logger.info(`Index.html full path: ${path.resolve(frontendPath, 'index.html')}`);
+
+app.use(express.static(frontendPath, { 
+  index: 'index.html',
+  maxAge: '1h'
+}));
 
 // Serve index.html for SPA routing
-app.get('/', (req, res) => {
-  res.sendFile(path.join(frontendPath, 'index.html'));
+app.get('/', (req, res, next) => {
+  const indexPath = path.resolve(frontendPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      logger.error(`Failed to serve index.html from ${indexPath}:`, err);
+      res.status(404).json({
+        success: false,
+        error: 'index.html not found',
+        path: indexPath
+      });
+    }
+  });
 });
 
 // ========================================
@@ -145,6 +197,9 @@ app.use('/api/admin', stubRoutes.admin);
 // Weather API routes
 app.use('/api/weather', stubRoutes.weather);
 
+// External API Proxy routes
+app.use('/api/proxy', stubRoutes.proxy);
+
 // ========================================
 // WEBSOCKET (Socket.io) SETUP
 // ========================================
@@ -186,7 +241,38 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 // ========================================
-// 404 HANDLER
+// SPA ROUTING - Serve index.html only for non-file routes
+// ========================================
+
+app.get('*', (req, res) => {
+  // Don't interfere with API routes - return 404
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      error: 'Endpoint not found',
+      path: req.originalUrl,
+      method: req.method
+    });
+  }
+
+  // For any other request not served by express.static, serve index.html
+  // This allows SPA routing to work
+  // If it's a real file, express.static would have already served it
+  const indexPath = path.resolve(frontendPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      logger.error(`Failed to serve index.html from ${indexPath}:`, err);
+      res.status(404).json({
+        success: false,
+        error: 'index.html not found',
+        path: indexPath
+      });
+    }
+  });
+});
+
+// ========================================
+// 404 HANDLER (fallback)
 // ========================================
 
 app.use((req, res) => {
@@ -213,22 +299,44 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 async function startServer() {
   try {
-    // Initialize database
-    logger.info('Initializing database connection...');
-    await db.initialize();
-    logger.info('Database connected successfully');
-    
-    // Run migrations
-    logger.info('Running database migrations...');
-    await db.runMigrations();
-    logger.info('Migrations completed');
+    // Initialize database (optional for development mode)
+    let dbInitialized = false;
+    if (process.env.NODE_ENV !== 'development' || process.env.REQUIRE_DB === 'true') {
+      try {
+        logger.info('Initializing database connection...');
+        await db.initialize();
+        logger.info('Database connected successfully');
+        
+        // Run migrations
+        logger.info('Running database migrations...');
+        await db.runMigrations();
+        logger.info('Migrations completed');
+        dbInitialized = true;
+      } catch (dbError) {
+        if (process.env.NODE_ENV === 'development') {
+          logger.warn('Database connection failed - running in development mode without database');
+          logger.warn('Frontend will work with mock data');
+        } else {
+          throw dbError;
+        }
+      }
+    } else {
+      logger.info('Running in development mode - database is optional');
+      logger.info('Frontend will work with mock API responses');
+    }
     
     // Start HTTP server
     server.listen(PORT, HOST, () => {
-      logger.info(`🚀 OceanGuard API Server running on ${HOST}:${PORT}`);
+      const url = `http://localhost:${PORT}`;
+      logger.info(`🚀 OceanGuard API Server running`);
+      logger.info(`📍 Visit: ${url}`);
       logger.info(`Environment: ${process.env.NODE_ENV}`);
       logger.info(`Workers: ${process.env.WORKERS || 1}`);
-      logger.info(`Database: ${process.env.DB_NAME}@${process.env.DB_HOST}`);
+      if (dbInitialized) {
+        logger.info(`Database: ${process.env.DB_NAME}@${process.env.DB_HOST}`);
+      } else {
+        logger.info(`Database: Not connected (development mode)`);
+      }
       logger.info(`WebSocket: Enabled (Socket.io)`);
     });
     

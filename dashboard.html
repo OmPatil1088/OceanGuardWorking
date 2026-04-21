@@ -802,6 +802,12 @@
                     </div>
                 </div>
                 
+                <div class="form-group">
+                    <label for="caseMediaProof">Media Proof <span class="required">*</span></label>
+                    <input type="file" id="caseMediaProof" accept="image/*,video/*" required>
+                    <small class="form-hint">Upload image or video evidence of the incident (JPG, PNG, MP4, MOV, etc.). Required.</small>
+                </div>
+                
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" id="cancelReport">Cancel</button>
                     <button type="submit" class="btn-primary">Submit Report</button>
@@ -890,6 +896,71 @@
                         <button type="button" class="btn-secondary" id="btnCancelEdit">Cancel</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Case Details Modal -->
+    <div class="modal" id="caseDetailsModal">
+        <div class="modal-content modal-case-details">
+            <div class="modal-header">
+                <h2 id="caseDetailsTitle">Case Details</h2>
+                <button class="modal-close" id="closeCaseDetailsModal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="case-details-body">
+                <div class="case-details-grid">
+                    <div class="case-details-item">
+                        <label>Case ID</label>
+                        <div class="case-details-value" id="caseDetailsId"></div>
+                    </div>
+                    <div class="case-details-item">
+                        <label>Type</label>
+                        <div class="case-details-value" id="caseDetailsType"></div>
+                    </div>
+                    <div class="case-details-item">
+                        <label>Severity</label>
+                        <div class="case-details-value" id="caseDetailsSeverity"></div>
+                    </div>
+                    <div class="case-details-item">
+                        <label>Status</label>
+                        <div class="case-details-value" id="caseDetailsStatus"></div>
+                    </div>
+                    <div class="case-details-item">
+                        <label>Location</label>
+                        <div class="case-details-value" id="caseDetailsLocation"></div>
+                    </div>
+                    <div class="case-details-item">
+                        <label>Reported</label>
+                        <div class="case-details-value" id="caseDetailsReported"></div>
+                    </div>
+                    <div class="case-details-item">
+                        <label>Contact</label>
+                        <div class="case-details-value" id="caseDetailsContact"></div>
+                    </div>
+                    <div class="case-details-item">
+                        <label>People Affected</label>
+                        <div class="case-details-value" id="caseDetailsPeople"></div>
+                    </div>
+                </div>
+
+                <div class="case-details-section">
+                    <label>Description</label>
+                    <p class="case-details-description" id="caseDetailsDescription"></p>
+                </div>
+
+                <div class="case-details-section">
+                    <label>Media Proof</label>
+                    <div class="case-details-media" id="caseDetailsMediaWrap">
+                        <img id="caseDetailsMediaImage" alt="Uploaded media proof" style="display: none;">
+                        <div id="caseDetailsMediaFallback" class="case-details-media-empty">No media attached</div>
+                    </div>
+                    <div class="case-details-media-meta" id="caseDetailsMediaMeta"></div>
+                </div>
             </div>
         </div>
     </div>

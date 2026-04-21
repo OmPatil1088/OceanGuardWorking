@@ -1151,6 +1151,31 @@ Sign In
 </div>
 </div>
 
+<script>
+// Emergency button - works immediately without waiting for Firebase/module imports
+function setupEmergencyButton() {
+    const emergencyGuestBtn = document.getElementById('emergencyGuestBtn');
+    if (emergencyGuestBtn && !emergencyGuestBtn.hasAttribute('data-listener-attached')) {
+        emergencyGuestBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            sessionStorage.setItem('isLoggedIn', 'false');
+            sessionStorage.setItem('username', 'guest');
+            sessionStorage.setItem('userRole', 'guest');
+            sessionStorage.setItem('isGuest', 'true');
+            window.location.href = 'dashboard.html';
+        });
+        emergencyGuestBtn.setAttribute('data-listener-attached', 'true');
+    }
+}
+
+// Setup emergency button immediately on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupEmergencyButton);
+} else {
+    setupEmergencyButton();
+}
+</script>
+
 <script type="module" src="login.js"></script>
 
 <script>

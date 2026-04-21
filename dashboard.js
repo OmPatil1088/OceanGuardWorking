@@ -1355,20 +1355,60 @@ function viewCase(id) {
     }
     
     if (caseItem) {
-        const details = `
-📋 CASE DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🆔 Case ID: ${caseItem.id || caseItem.caseId}
-📌 Type: ${caseItem.type}
-📍 Location: ${caseItem.location}
-📝 Description: ${caseItem.description}
-⚠️  Severity: ${caseItem.severity.toUpperCase()}
-✅ Status: ${caseItem.status.toUpperCase()}
-📞 Contact: ${caseItem.contact || 'N/A'}
-👥 People Affected: ${caseItem.people || 'N/A'}
-🕐 Reported: ${caseItem.reported || caseItem.reportedAt}
-`;
-        alert(details);
+        const caseDetailsModal = document.getElementById('caseDetailsModal');
+        const caseDetailsTitle = document.getElementById('caseDetailsTitle');
+        const caseDetailsId = document.getElementById('caseDetailsId');
+        const caseDetailsType = document.getElementById('caseDetailsType');
+        const caseDetailsSeverity = document.getElementById('caseDetailsSeverity');
+        const caseDetailsStatus = document.getElementById('caseDetailsStatus');
+        const caseDetailsLocation = document.getElementById('caseDetailsLocation');
+        const caseDetailsReported = document.getElementById('caseDetailsReported');
+        const caseDetailsContact = document.getElementById('caseDetailsContact');
+        const caseDetailsPeople = document.getElementById('caseDetailsPeople');
+        const caseDetailsDescription = document.getElementById('caseDetailsDescription');
+        const caseDetailsMediaImage = document.getElementById('caseDetailsMediaImage');
+        const caseDetailsMediaFallback = document.getElementById('caseDetailsMediaFallback');
+        const caseDetailsMediaMeta = document.getElementById('caseDetailsMediaMeta');
+
+        const mediaProof = caseItem.mediaProof || {};
+        const mediaPreviewUrl = mediaProof.previewUrl || mediaProof.previewDataUrl || mediaProof.dataUrl || '';
+        const mediaUploadedAt = mediaProof.uploadedAt ? new Date(mediaProof.uploadedAt).toLocaleString() : 'N/A';
+        const mediaFileSize = mediaProof.fileSize || 'N/A';
+
+        if (caseDetailsTitle) caseDetailsTitle.textContent = `${caseItem.type || 'Case'} Details`;
+        if (caseDetailsId) caseDetailsId.textContent = caseItem.id || caseItem.caseId || 'N/A';
+        if (caseDetailsType) caseDetailsType.textContent = caseItem.type || 'N/A';
+        if (caseDetailsSeverity) caseDetailsSeverity.textContent = (caseItem.severity || 'N/A').toString().toUpperCase();
+        if (caseDetailsStatus) caseDetailsStatus.textContent = (caseItem.status || 'N/A').toString().toUpperCase();
+        if (caseDetailsLocation) caseDetailsLocation.textContent = caseItem.location || 'N/A';
+        if (caseDetailsReported) caseDetailsReported.textContent = caseItem.reported || caseItem.reportedAt || 'N/A';
+        if (caseDetailsContact) caseDetailsContact.textContent = caseItem.contact || 'N/A';
+        if (caseDetailsPeople) caseDetailsPeople.textContent = caseItem.people || 'N/A';
+        if (caseDetailsDescription) caseDetailsDescription.textContent = caseItem.description || 'No description provided.';
+
+        if (caseDetailsMediaImage && caseDetailsMediaFallback && caseDetailsMediaMeta) {
+            const isImageMedia = mediaPreviewUrl && (!mediaProof.fileType || mediaProof.fileType.startsWith('image/'));
+
+            if (isImageMedia) {
+                caseDetailsMediaImage.src = mediaPreviewUrl;
+                caseDetailsMediaImage.style.display = 'block';
+                caseDetailsMediaFallback.style.display = 'none';
+                caseDetailsMediaMeta.textContent = `File: ${mediaProof.fileName || 'Unknown'} | Size: ${mediaFileSize} | Uploaded: ${mediaUploadedAt}`;
+            } else {
+                caseDetailsMediaImage.removeAttribute('src');
+                caseDetailsMediaImage.style.display = 'none';
+                caseDetailsMediaFallback.style.display = 'flex';
+                caseDetailsMediaMeta.textContent = mediaProof.fileName
+                    ? `File: ${mediaProof.fileName} | Uploaded: ${mediaUploadedAt}`
+                    : 'No media attached';
+            }
+        }
+
+        if (caseDetailsModal) {
+            caseDetailsModal.classList.add('active');
+        } else {
+            alert(`❌ Case ${id} details are available, but the details modal is missing.`);
+        }
     } else {
         alert(`❌ Case ${id} not found. It may have been deleted.`);
     }
@@ -1518,6 +1558,42 @@ function initializeModals() {
         }
     });
 
+    const caseDetailsModal = document.getElementById('caseDetailsModal');
+    const closeCaseDetailsModal = document.getElementById('closeCaseDetailsModal');
+
+    if (caseDetailsModal && closeCaseDetailsModal) {
+        closeCaseDetailsModal.addEventListener('click', function () {
+            caseDetailsModal.classList.remove('active');
+        });
+
+        caseDetailsModal.addEventListener('click', function (e) {
+            if (e.target === caseDetailsModal) {
+                caseDetailsModal.classList.remove('active');
+            }
+        });
+    }
+
+    // Handle media file selection visual feedback
+    const mediaInput = document.getElementById('caseMediaProof');
+    if (mediaInput) {
+        mediaInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+                console.log(`📸 Media file selected: ${file.name} (${fileSize} MB)`);
+            }
+        });
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Unable to read media file for preview.'));
+                reader.readAsDataURL(file);
+            });
+        }
+    }
+
     // Fetch location button handler
     const fetchLocationBtn = document.getElementById('fetchLocationBtn');
     if (fetchLocationBtn) {
@@ -1619,13 +1695,48 @@ function initializeModals() {
     reportForm.addEventListener('submit', async function (e) {
         e.preventDefault();
 
+        // Validate media proof upload
+        const mediaInput = document.getElementById('caseMediaProof');
+        const mediaFile = mediaInput?.files[0];
+        
+        if (!mediaFile) {
+            alert('❌ Media proof is required! Please upload an image or video of the incident.');
+            mediaInput?.focus();
+            return;
+        }
+
+        // Validate file size (max 50MB)
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (mediaFile.size > maxSize) {
+            alert('❌ File size is too large! Maximum allowed size is 50MB.');
+            return;
+        }
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/quicktime', 'video/x-msvideo'];
+        if (!allowedTypes.includes(mediaFile.type)) {
+            alert('❌ Invalid file type! Only images (JPG, PNG, GIF, WEBP) and videos (MP4, MOV, AVI) are allowed.');
+            return;
+        }
+
+        let mediaPreviewUrl = '';
+        if (mediaFile.type.startsWith('image/')) {
+            try {
+                mediaPreviewUrl = await readFileAsDataUrl(mediaFile);
+            } catch (previewError) {
+                console.warn('Unable to create image preview, continuing without it:', previewError);
+            }
+        }
+
         const formData = {
             type: document.getElementById('caseType').value,
             severity: document.getElementById('caseSeverity').value,
             location: document.getElementById('caseLocation').value,
             description: document.getElementById('caseDescription').value,
             contact: document.getElementById('caseContact').value,
-            people: document.getElementById('casePeople').value
+            people: document.getElementById('casePeople').value,
+            mediaFileName: mediaFile.name,
+            mediaFileSize: (mediaFile.size / (1024 * 1024)).toFixed(2) + ' MB'
         };
 
         // Use precise location from locate button if available, otherwise use map center as fallback
@@ -1666,7 +1777,18 @@ function initializeModals() {
             contact: formData.contact,
             people: formData.people,
             lat: lat,
-            lng: lng
+            lng: lng,
+            mediaProof: {
+                fileName: formData.mediaFileName,
+                fileSize: formData.mediaFileSize,
+                fileType: mediaFile.type,
+                uploadedAt: new Date().toISOString()
+            }
+        };
+
+        const localMediaProof = {
+            ...payload.mediaProof,
+            previewUrl: mediaPreviewUrl
         };
 
         try {
@@ -1699,7 +1821,8 @@ function initializeModals() {
                 people: payload.people,
                 reportedBy: sessionStorage.getItem('username') || 'Anonymous',
                 reportedAt: new Date().toISOString(),
-                isUserReported: true
+                isUserReported: true,
+                mediaProof: localMediaProof
             };
 
             // Add to the beginning of cases array
@@ -1716,7 +1839,7 @@ function initializeModals() {
             refreshMapWithReportedCases();
             updateStats();
 
-            alert(`✅ Case ${payload.caseId} has been successfully reported!\n\nType: ${payload.type}\nLocation: ${payload.location}\nSeverity: ${payload.severity}\n\nThis incident is now visible in the Community Public Feed!`);
+            alert(`✅ Case ${payload.caseId} has been successfully reported!\n\nType: ${payload.type}\nLocation: ${payload.location}\nSeverity: ${payload.severity}\nMedia Proof: ${formData.mediaFileName} (${formData.mediaFileSize})\n\nThis incident is now visible in the Community Public Feed!`);
 
         } catch (error) {
             console.error('Error reporting case:', error);
@@ -1737,7 +1860,8 @@ function initializeModals() {
                 people: payload.people,
                 reportedBy: sessionStorage.getItem('username') || 'Anonymous',
                 reportedAt: new Date().toISOString(),
-                isUserReported: true
+                isUserReported: true,
+                mediaProof: localMediaProof
             };
 
             // Add to the beginning of cases array
@@ -2598,6 +2722,16 @@ function addToPublicIncidents(caseData) {
         if (stored) {
             publicIncidents = JSON.parse(stored);
         }
+
+        const mediaImages = [];
+        if (caseData.mediaProof?.previewUrl) {
+            mediaImages.push({
+                url: caseData.mediaProof.previewUrl,
+                timestamp: caseData.mediaProof.uploadedAt
+                    ? new Date(caseData.mediaProof.uploadedAt).toLocaleString()
+                    : new Date().toLocaleString()
+            });
+        }
         
         // Convert case to community incident format
         const communityIncident = {
@@ -2610,7 +2744,8 @@ function addToPublicIncidents(caseData) {
             severity: caseData.severity,
             verified: 0,
             unverified: 0,
-            images: [],
+            images: mediaImages,
+            mediaProof: caseData.mediaProof || null,
             comments: [],
             isUserReport: true  // Mark as user-reported case
         };

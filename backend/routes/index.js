@@ -131,6 +131,44 @@ weatherRouter.get('/alerts', (req, res) => {
   res.json({ success: true, message: 'Get weather alerts - to be implemented' });
 });
 
+/**
+ * External API Proxy Routes - /api/proxy
+ */
+const proxyRouter = express.Router();
+proxyRouter.post('/overpass', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const { query, endpoint } = req.body;
+    
+    if (!endpoint) {
+      return res.status(400).json({ error: 'endpoint required' });
+    }
+    
+    // Whitelist allowed Overpass endpoints
+    const allowedEndpoints = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass.openstreetmap.ru/api/interpreter'
+    ];
+    
+    if (!allowedEndpoints.includes(endpoint)) {
+      return res.status(400).json({ error: 'Invalid endpoint' });
+    }
+    
+    const response = await axios.post(endpoint, query, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 30000
+    });
+    
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Proxy request failed',
+      message: error.message 
+    });
+  }
+});
+
 module.exports = {
   incidents: incidentRouter,
   alerts: alertRouter,
@@ -138,5 +176,6 @@ module.exports = {
   community: communityRouter,
   analytics: analyticsRouter,
   admin: adminRouter,
-  weather: weatherRouter
+  weather: weatherRouter,
+  proxy: proxyRouter
 };
