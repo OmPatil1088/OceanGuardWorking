@@ -1,16 +1,27 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCFYKtb_fNUtLA3Yz0Ssx4PoBoKQIQxOM0",
-    authDomain: "disaster-ai-240b7.firebaseapp.com",
-    projectId: "disaster-ai-240b7",
+    apiKey: "AIzaSyCiOVDsusUhUSRW-xwMocoG5li39PsfM1Q",
+    authDomain: "ocean-hazard-a459e.firebaseapp.com",
+    projectId: "ocean-hazard-a459e",
+    storageBucket: "ocean-hazard-a459e.firebasestorage.app",
+    messagingSenderId: "555157224442",
+    appId: "1:555157224442:web:c1a5ab694d0c9331fc0243",
+    measurementId: "G-2BKLNKL551"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+const isLocalHostClient = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const isFileProtocol = window.location.protocol === 'file:';
+const isNonApiLocalPort = isLocalHostClient && window.location.port && window.location.port !== '5000';
+const AUTH_API_BASE = (isFileProtocol || isNonApiLocalPort)
+    ? 'http://localhost:5000'
+    : window.location.origin;
 
 console.log("✓ Firebase initialized for fallback support");
 
@@ -49,7 +60,7 @@ window.addEventListener('play', (e) => {
 // Authentication Provider Setup
 // ========================================
 function initializeAuthProvider() {
-    console.log("📱 Using secure backend authentication (/api/login)");
+    console.log("📱 Using backend authentication with Firebase fallback");
 }
 
 // ========================================
@@ -280,8 +291,10 @@ async function handleLoginSubmit(e) {
 }
 
 async function authenticateUser(email, password) {
+    let backendReason = 'unavailable';
+
     try {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch(`${AUTH_API_BASE}/api/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -295,15 +308,34 @@ async function authenticateUser(email, password) {
         }
 
         if (response.status === 401) {
+            backendReason = 'invalid';
+        } else {
+            console.warn(`⚠️  Backend auth returned ${response.status}, trying Firebase fallback`);
+            setAuthServiceDegraded(true);
+        }
+    } catch (error) {
+        console.warn('⚠️  Backend auth unavailable, trying Firebase fallback:', error.message);
+        setAuthServiceDegraded(true);
+        backendReason = 'unavailable';
+    }
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        return { success: true, reason: 'firebase' };
+    } catch (firebaseError) {
+        if (
+            firebaseError.code === 'auth/invalid-credential' ||
+            firebaseError.code === 'auth/user-not-found' ||
+            firebaseError.code === 'auth/wrong-password' ||
+            firebaseError.code === 'auth/invalid-email'
+        ) {
             return { success: false, reason: 'invalid' };
         }
 
-        console.warn(`⚠️  Backend auth returned ${response.status}, entering limited mode`);
-        setAuthServiceDegraded(true);
-        return { success: false, reason: 'unavailable' };
-    } catch (error) {
-        console.warn('⚠️  Backend auth unavailable, entering limited mode:', error.message);
-        setAuthServiceDegraded(true);
+        if (backendReason === 'invalid') {
+            return { success: false, reason: 'invalid' };
+        }
+
         return { success: false, reason: 'unavailable' };
     }
 }
@@ -520,7 +552,7 @@ async function handleSignupSubmit(e) {
 
 async function registerWithBackend(email, password) {
     try {
-        const response = await fetch('/api/auth/register', {
+        const response = await fetch(`${AUTH_API_BASE}/api/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

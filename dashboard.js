@@ -12,9 +12,13 @@ const PUBLIC_INCIDENTS_STORAGE_KEY = 'publicIncidents';
 
 // Firebase Config
 const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyCFYKtb_fNUtLA3Yz0Ssx4PoBoKQIQxOM0",
-    authDomain: "disaster-ai-240b7.firebaseapp.com",
-    projectId: "disaster-ai-240b7"
+    apiKey: "AIzaSyCiOVDsusUhUSRW-xwMocoG5li39PsfM1Q",
+    authDomain: "ocean-hazard-a459e.firebaseapp.com",
+    projectId: "ocean-hazard-a459e",
+    storageBucket: "ocean-hazard-a459e.firebasestorage.app",
+    messagingSenderId: "555157224442",
+    appId: "1:555157224442:web:c1a5ab694d0c9331fc0243",
+    measurementId: "G-2BKLNKL551"
 };
 
 // ========================================
@@ -321,7 +325,12 @@ let casesInitialized = false;
 let lastPreciseLocationLat = null;
 let lastPreciseLocationLng = null;
 
-const API_BASE = 'http://localhost:5000';
+const isLocalHostClient = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const isFileProtocol = window.location.protocol === 'file:';
+const isNonApiLocalPort = isLocalHostClient && window.location.port && window.location.port !== '5000';
+const API_BASE = (isFileProtocol || isNonApiLocalPort)
+    ? 'http://localhost:5000'
+    : window.location.origin;
 const INCIDENTS_BACKEND_COOLDOWN_MS = 10 * 60 * 1000;
 const NEWS_FAILURE_COOLDOWN_MS = 60 * 60 * 1000;
 
@@ -1011,7 +1020,7 @@ async function loadNews() {
     
     newsFetchState.inFlight = true;
 
-    fetch('/api/news', { signal: AbortSignal.timeout(5000) })
+    fetch(`${API_BASE}/api/news`, { signal: AbortSignal.timeout(5000) })
         .then(response => {
             if (!response.ok) {
                 if (response.status === 429) {
@@ -1423,7 +1432,7 @@ async function deleteCase(id) {
         console.log(`🗑️ Admin (${currentUserEmail}) deleting case ${caseToDelete.caseId || id}...`);
         
         // Try API deletion first (if backend available)
-        if (API_BASE && API_BASE.includes('localhost')) {
+        if (API_BASE) {
             try {
                 const apiResponse = await fetch(`${API_BASE}/api/incidents/${id}`, { 
                     method: 'DELETE',
@@ -1489,6 +1498,65 @@ function initializeModals() {
     const closeModal = document.getElementById('closeModal');
     const cancelReport = document.getElementById('cancelReport');
     const reportForm = document.getElementById('reportForm');
+    const mediaProofInput = document.getElementById('caseMediaProof');
+
+    const MAX_MEDIA_SIZE_BYTES = 4 * 1024 * 1024;
+    const AI_VERIFY_TIMEOUT_MS = 9000;
+    const AI_VERIFY_MAX_RETRIES = 2;
+
+    function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read media proof file.'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function buildLocalVerificationFallback(payload) {
+        const detectedHazard = payload.type || 'Other';
+        return {
+            detectedHazard,
+            detectionConfidence: 0.55,
+            authenticityScore: 55,
+            isLikelyReal: true,
+            verificationStatus: 'needs_review',
+            manualReviewRequired: true,
+            source: 'client-fallback',
+            reason: 'AI service unavailable. Report queued with manual review verification.',
+            verifiedAt: new Date().toISOString()
+        };
+    }
+
+    async function requestAiVerification(payload) {
+        let lastError = null;
+
+        for (let attempt = 0; attempt <= AI_VERIFY_MAX_RETRIES; attempt += 1) {
+            try {
+                const response = await fetch(`${API_BASE}/api/ai/verify-hazard`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(AI_VERIFY_TIMEOUT_MS)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`AI verification failed: ${response.status}`);
+                }
+
+                const verification = await response.json();
+                verification.retryCount = attempt + 1;
+                return verification;
+            } catch (error) {
+                lastError = error;
+                if (attempt === AI_VERIFY_MAX_RETRIES) {
+                    throw error;
+                }
+            }
+        }
+
+        throw lastError || new Error('AI verification failed after retries');
+    }
 
     reportBtn.addEventListener('click', function (e) {
         e.preventDefault();
@@ -1619,6 +1687,31 @@ function initializeModals() {
     reportForm.addEventListener('submit', async function (e) {
         e.preventDefault();
 
+        const mediaFile = mediaProofInput && mediaProofInput.files ? mediaProofInput.files[0] : null;
+        if (!mediaFile) {
+            alert('Please upload a media proof file before submitting the report.');
+            return;
+        }
+
+        if (!mediaFile.type || (!mediaFile.type.startsWith('image/') && !mediaFile.type.startsWith('video/'))) {
+            alert('Only image or video files are allowed for media proof.');
+            return;
+        }
+
+        if (mediaFile.size > MAX_MEDIA_SIZE_BYTES) {
+            alert('Media proof file is too large. Please upload a file up to 4MB.');
+            return;
+        }
+
+        let mediaProofDataUrl = '';
+        try {
+            mediaProofDataUrl = await fileToDataUrl(mediaFile);
+        } catch (fileError) {
+            console.error('Media file processing error:', fileError);
+            alert('Could not process the media proof file. Please try another file.');
+            return;
+        }
+
         const formData = {
             type: document.getElementById('caseType').value,
             severity: document.getElementById('caseSeverity').value,
@@ -1656,9 +1749,52 @@ function initializeModals() {
         // Generate a case ID (frontend side)
         const newId = `DS-${Date.now()}`;
 
+        const submitButton = reportForm.querySelector('button[type="submit"]');
+        const originalSubmitText = submitButton ? submitButton.textContent : '';
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Verifying with AI...';
+        }
+
+        let aiVerification = null;
+        const reportType = formData.type.charAt(0).toUpperCase() + formData.type.slice(1);
+
+        try {
+            aiVerification = await requestAiVerification({
+                reportedType: reportType,
+                description: formData.description,
+                location: formData.location,
+                mediaProof: {
+                    fileName: mediaFile.name,
+                    fileType: mediaFile.type,
+                    fileSize: mediaFile.size,
+                    dataUrl: mediaProofDataUrl
+                }
+            });
+        } catch (aiError) {
+            console.warn('AI verification unavailable, using fallback verification:', aiError.message);
+            aiVerification = buildLocalVerificationFallback({ type: reportType });
+        }
+
+        if (aiVerification.verificationStatus === 'rejected') {
+            aiVerification.verificationStatus = 'needs_review';
+            aiVerification.manualReviewRequired = true;
+            aiVerification.reason = `${aiVerification.reason || 'Low authenticity score from AI.'} Auto-rejection disabled; routed to manual review.`;
+
+            alert(`⚠️ AI marked this proof as suspicious, but the report will still be submitted for manual verification.\n\nDetected Hazard: ${aiVerification.detectedHazard}\nReason: ${aiVerification.reason}`);
+        }
+
+        if (aiVerification.verificationStatus !== 'verified') {
+            aiVerification.manualReviewRequired = true;
+        }
+
+        if (submitButton) {
+            submitButton.textContent = 'Submitting Report...';
+        }
+
         const payload = {
             caseId: newId,
-            type: formData.type.charAt(0).toUpperCase() + formData.type.slice(1),
+            type: reportType,
             location: formData.location,
             description: formData.description,
             severity: formData.severity,
@@ -1666,7 +1802,15 @@ function initializeModals() {
             contact: formData.contact,
             people: formData.people,
             lat: lat,
-            lng: lng
+            lng: lng,
+            aiVerification,
+            mediaProof: {
+                fileName: mediaFile.name,
+                fileType: mediaFile.type,
+                fileSize: mediaFile.size,
+                dataUrl: mediaProofDataUrl,
+                uploadedAt: new Date().toISOString()
+            }
         };
 
         try {
@@ -1697,6 +1841,8 @@ function initializeModals() {
                 lng: payload.lng,
                 contact: payload.contact,
                 people: payload.people,
+                aiVerification: payload.aiVerification,
+                mediaProof: payload.mediaProof,
                 reportedBy: sessionStorage.getItem('username') || 'Anonymous',
                 reportedAt: new Date().toISOString(),
                 isUserReported: true
@@ -1716,7 +1862,7 @@ function initializeModals() {
             refreshMapWithReportedCases();
             updateStats();
 
-            alert(`✅ Case ${payload.caseId} has been successfully reported!\n\nType: ${payload.type}\nLocation: ${payload.location}\nSeverity: ${payload.severity}\n\nThis incident is now visible in the Community Public Feed!`);
+            alert(`✅ Case ${payload.caseId} has been successfully reported!\n\nType: ${payload.type}\nAI Detected: ${payload.aiVerification.detectedHazard}\nVerification: ${payload.aiVerification.verificationStatus.toUpperCase()} (${payload.aiVerification.authenticityScore}%)\nLocation: ${payload.location}\nSeverity: ${payload.severity}\n\nThis incident is now visible in the Community Public Feed!`);
 
         } catch (error) {
             console.error('Error reporting case:', error);
@@ -1735,6 +1881,8 @@ function initializeModals() {
                 lng: payload.lng,
                 contact: payload.contact,
                 people: payload.people,
+                aiVerification: payload.aiVerification,
+                mediaProof: payload.mediaProof,
                 reportedBy: sessionStorage.getItem('username') || 'Anonymous',
                 reportedAt: new Date().toISOString(),
                 isUserReported: true
@@ -1756,6 +1904,10 @@ function initializeModals() {
 
             alert(`⚠️ Case ${newId} reported locally (server may be offline).\n\nType: ${payload.type}\nLocation: ${payload.location}\nSeverity: ${payload.severity}\n\nThis incident will be visible in the Community Public Feed once online!`);
         } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = originalSubmitText;
+            }
             reportModal.classList.remove('active');
             reportForm.reset();
         }
@@ -2608,9 +2760,13 @@ function addToPublicIncidents(caseData) {
             user: caseData.reportedBy || sessionStorage.getItem('username') || 'Anonymous',
             timestamp: new Date(caseData.reportedAt || new Date()).toLocaleString(),
             severity: caseData.severity,
+            aiVerification: caseData.aiVerification || null,
             verified: 0,
             unverified: 0,
-            images: [],
+            images: caseData.mediaProof && caseData.mediaProof.fileType && caseData.mediaProof.fileType.startsWith('image/')
+                ? [{ url: caseData.mediaProof.dataUrl, timestamp: new Date().toLocaleString() }]
+                : [],
+            mediaProof: caseData.mediaProof || null,
             comments: [],
             isUserReport: true  // Mark as user-reported case
         };

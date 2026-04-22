@@ -54,6 +54,25 @@ const incidentSchema = new mongoose.Schema({
     people: String,
     lat: { type: Number, default: 0 },
     lng: { type: Number, default: 0 },
+    mediaProof: {
+        fileName: String,
+        fileType: String,
+        fileSize: Number,
+        dataUrl: String,
+        uploadedAt: Date
+    },
+    aiVerification: {
+        detectedHazard: String,
+        detectionConfidence: Number,
+        authenticityScore: Number,
+        isLikelyReal: Boolean,
+        verificationStatus: String,
+        manualReviewRequired: Boolean,
+        source: String,
+        retryCount: Number,
+        reason: String,
+        verifiedAt: Date
+    },
     createdAt: { type: Date, default: Date.now }
 });
 

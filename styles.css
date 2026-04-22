@@ -391,6 +391,13 @@ input, select, textarea {
     box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
+.form-help {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--gray);
+    font-size: 0.8rem;
+}
+
 .form-options {
     display: flex;
     justify-content: space-between;

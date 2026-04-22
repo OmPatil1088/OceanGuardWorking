@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
+const fs = require('fs');
 const logger = require('./middleware/logger');
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
@@ -84,14 +85,41 @@ app.use('/api/auth/register', rateLimiter.createLimiter(3, 60 * 60 * 1000)); // 
 // STATIC FILES (Frontend)
 // ========================================
 
-// Serve frontend files from parent directory
+// Serve frontend files from configured path or common local/container locations
 const path = require('path');
-const frontendPath = path.join(__dirname, '../');
-app.use(express.static(frontendPath));
+const configuredFrontendPath = process.env.FRONTEND_PATH
+  ? path.resolve(process.env.FRONTEND_PATH)
+  : null;
+const frontendCandidates = [
+  configuredFrontendPath,
+  path.resolve(__dirname, '..', '..'),
+  path.resolve(__dirname, '..'),
+  path.resolve(process.cwd(), '..'),
+  path.resolve(process.cwd())
+].filter(Boolean);
+const frontendPath = frontendCandidates.find((candidate) =>
+  fs.existsSync(path.join(candidate, 'index.html'))
+);
+
+if (frontendPath) {
+  app.use(express.static(frontendPath));
+  logger.info(`Serving frontend static files from: ${frontendPath}`);
+} else {
+  logger.warn(
+    `Frontend index.html not found. Checked paths: ${frontendCandidates.join(', ')}`
+  );
+}
 
 // Serve index.html for SPA routing
 app.get('/', (req, res) => {
-  res.sendFile(path.join(frontendPath, 'index.html'));
+  if (!frontendPath) {
+    return res.status(404).json({
+      success: false,
+      error: 'Frontend not found on server'
+    });
+  }
+
+  return res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
 // ========================================
@@ -144,6 +172,12 @@ app.use('/api/admin', stubRoutes.admin);
 
 // Weather API routes
 app.use('/api/weather', stubRoutes.weather);
+
+// News API routes
+app.use('/api/news', stubRoutes.news);
+
+// AI verification routes
+app.use('/api/ai', stubRoutes.ai);
 
 // ========================================
 // WEBSOCKET (Socket.io) SETUP
@@ -208,8 +242,41 @@ app.use(errorHandler.handle);
 // DATABASE & SERVER INITIALIZATION
 // ========================================
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number.parseInt(process.env.PORT || '5000', 10) || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
+const MAX_PORT_RETRIES = Number.parseInt(process.env.PORT_RETRIES || '20', 10) || 20;
+
+function listenOnAvailablePort(httpServer, preferredPort, host, maxRetries) {
+  let attempt = 0;
+
+  return new Promise((resolve, reject) => {
+    const tryListen = (port) => {
+      const onError = (error) => {
+        httpServer.removeListener('listening', onListening);
+
+        if (error.code === 'EADDRINUSE' && attempt < maxRetries) {
+          attempt += 1;
+          const nextPort = port + 1;
+          logger.warn(`Port ${port} is in use. Retrying on port ${nextPort}...`);
+          return tryListen(nextPort);
+        }
+
+        return reject(error);
+      };
+
+      const onListening = () => {
+        httpServer.removeListener('error', onError);
+        resolve(port);
+      };
+
+      httpServer.once('error', onError);
+      httpServer.once('listening', onListening);
+      httpServer.listen(port, host);
+    };
+
+    tryListen(preferredPort);
+  });
+}
 
 async function startServer() {
   try {
@@ -223,14 +290,14 @@ async function startServer() {
     await db.runMigrations();
     logger.info('Migrations completed');
     
-    // Start HTTP server
-    server.listen(PORT, HOST, () => {
-      logger.info(`🚀 OceanGuard API Server running on ${HOST}:${PORT}`);
-      logger.info(`Environment: ${process.env.NODE_ENV}`);
-      logger.info(`Workers: ${process.env.WORKERS || 1}`);
-      logger.info(`Database: ${process.env.DB_NAME}@${process.env.DB_HOST}`);
-      logger.info(`WebSocket: Enabled (Socket.io)`);
-    });
+    // Start HTTP server (auto-fallback to next port when preferred port is busy)
+    const activePort = await listenOnAvailablePort(server, PORT, HOST, MAX_PORT_RETRIES);
+    const localUrl = `http://localhost:${activePort}`;
+    logger.info(`🚀 OceanGuard API Server running at ${localUrl} (bound to ${HOST}:${activePort})`);
+    logger.info(`Environment: ${process.env.NODE_ENV}`);
+    logger.info(`Workers: ${process.env.WORKERS || 1}`);
+    logger.info(`Database: ${process.env.DB_NAME}@${process.env.DB_HOST}`);
+    logger.info(`WebSocket: Enabled (Socket.io)`);
     
     // Graceful shutdown
     handleGracefulShutdown(server, db);
